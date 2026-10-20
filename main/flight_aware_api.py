@@ -10,6 +10,9 @@ query_url = "https://aeroapi.flightaware.com/aeroapi/airports/SAN/flights/depart
 class OutsideDateRange(ValueError):
     pass
 
+class RateLimitExceeded(RuntimeError):
+    pass
+
 def get_flight_data(api_key: int, lookup_date_min: str, lookup_date_max: str):
     '''
     Given yesterday's date range in UTC, and the API key, returns the neccissary
@@ -37,10 +40,11 @@ def get_flight_data(api_key: int, lookup_date_min: str, lookup_date_max: str):
             break
         r = requests.get(query_url, headers=header, params=flight_params)
         print(f"Request number {request_count}")
-        request_count += 1
+
         if r.status_code == 429:
-            print("Code 429: Rate limit exceeded.")
-            break
+            raise RateLimitExceeded(
+                f"Code 429: Rate limit exceeded on request {request_count - 1}"
+            )
         r.raise_for_status()
         data = r.json()
         flights.extend(data.get("departures", []))
@@ -61,6 +65,8 @@ def get_flight_data(api_key: int, lookup_date_min: str, lookup_date_max: str):
         print("Waiting for 62 seconds...")
         time.sleep(62) # Sleep for 62 seconds to avoid rate limit
         print("Continuing to next page...")
+
+        request_count += 1
 
     #Checking if all flights are within date range
     no_scheduled_out = 0

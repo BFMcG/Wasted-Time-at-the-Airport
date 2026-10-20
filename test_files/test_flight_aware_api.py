@@ -46,13 +46,13 @@ def mock_window():
     return {"start": "2026-01-01T07:00:00Z", "end": "2026-01-02T07:00:00Z"}
  
  
-def mock_response(flights, next_link=None, num_pages=1):
+def mock_response(flights, next_link=None, num_pages=1, status_code=200):
     '''
     mocks the response from requests.get() for testing get_flights.
     Adds next link to mock flights if next_link is provided.
     '''
     response = MagicMock()
-    response.status_code = 200
+    response.status_code = status_code
     response.raise_for_status.return_value = None
     response.json.return_value = {
         "departures": flights,
@@ -134,3 +134,15 @@ def test_outside_date_range(mock_get, mock_flights_range, mock_window):
 
     with pytest.raises(ValueError, match="Flight 1 is outside of scheduled date range"):
         get_flight_data(None, mock_window["start"], mock_window["end"])
+
+def test_runtime_error(mock_get, mock_sleep, mock_flights_page, mock_window):
+
+    mock_get.side_effect = [
+        mock_response(mock_flights_page, next_link="/flights?cursor=abc123",
+                      status_code=429)
+    ]
+
+    with pytest.raises(RuntimeError, match="Code 429: Rate limit exceeded on request 0"):
+        get_flight_data(None, mock_window["start"], mock_window["end"])
+
+    assert mock_sleep.call_count == 0
