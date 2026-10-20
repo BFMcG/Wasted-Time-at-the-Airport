@@ -1,8 +1,8 @@
 from unittest.mock import MagicMock, patch
- 
+
 import pytest
- 
 from flight_aware_api import get_flight_data
+
 
 # flight_aware_api test fixtures and mock_response
 @pytest.fixture

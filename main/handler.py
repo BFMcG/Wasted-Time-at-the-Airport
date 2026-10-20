@@ -1,12 +1,11 @@
-import os
-import json
 import gzip
-from datetime import datetime, timedelta, timezone
- 
+import json
+import os
+from datetime import UTC, datetime, timedelta
+
 import boto3
- 
 from flight_aware_api import get_flight_data
- 
+
 s3 = boto3.client("s3")
  
 Airport = "SAN"
@@ -17,7 +16,7 @@ def yesterday_date() -> tuple[str, str]:
     '''
     Yesterday's full UTC day.
     '''
-    max_date = datetime.now(timezone.utc).replace(hour=7, minute=0, second=0, microsecond=0)
+    max_date = datetime.now(UTC).replace(hour=7, minute=0, second=0, microsecond=0)
     min_date = max_date - timedelta(days=1)
     fmt = "%Y-%m-%dT%H:%M:%SZ"
     return min_date.strftime(fmt), max_date.strftime(fmt)
@@ -55,14 +54,14 @@ def handler(event, context):
             f"{context.get_remaining_time_in_millis() / 1000:.0f}s remaining"
         )
     else:
-        print(f"No context available for request")
+        print("No context available for request")
  
     flights = get_flight_data(api_key, start, end)
  
     if not flights:
         raise RuntimeError(f"statusCode: 200, flights empty for {start} -> {end}.")
  
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     ingested_at = now.isoformat()
  
     # JSON Lines: one flight per line, with an ingestion timestamp
