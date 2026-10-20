@@ -1,14 +1,11 @@
-import os
 import gzip
 import json
+import os
 from datetime import datetime
 from unittest.mock import patch
- 
 import pytest
- 
 os.environ.setdefault("AWS_DEFAULT_REGION", "us-west-2")
- 
-from flight_aware_api import get_flight_data
+
 import handler
 
 
