@@ -28,7 +28,7 @@ def build_key(date_window) -> str:
     Building a the key for the S3 bucket for the daily flight data.
     window_start: "YYYY-MM-DD" format for yesterday's flight data.
     '''
-    dt = date_window[:10]
+    dt = date_window[:-10]
     return (
         f"{S3_prefix}/airport={Airport}/"
         f"departures_{dt}"
