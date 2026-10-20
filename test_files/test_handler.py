@@ -3,7 +3,9 @@ import json
 import os
 from datetime import datetime
 from unittest.mock import patch
+
 import pytest
+
 os.environ.setdefault("AWS_DEFAULT_REGION", "us-west-2")
 
 import handler
