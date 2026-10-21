@@ -1,0 +1,42 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Build Lambda package
+        run: |
+          pip install requests -t package
+          cp main/handler.py main/flight_aware_api.py package/
+          cd package && zip -r ../function.zip .
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Deploy to Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ vars.LAMBDA_FUNC_NAME }} \
+            --zip-file fileb://function.zip
+          aws lambda wait function-updated --function-name ${{ vars.LAMBDA_FUNC_NAME }}
