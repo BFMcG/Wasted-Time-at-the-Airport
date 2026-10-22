@@ -8,7 +8,7 @@ from flight_aware_api import get_flight_data
 
 s3 = boto3.client("s3")
  
-Airport = "SAN"
+Airport = "KSAN"
 S3_prefix = "raw/flightaware"
  
  
@@ -30,7 +30,7 @@ def build_key(date_window) -> str:
     dt = date_window[:-10]
     return (
         f"{S3_prefix}/airport={Airport}/"
-        f"departures_{dt}"
+        f"departures_{dt}.jsonl.gz"
     )
  
  
