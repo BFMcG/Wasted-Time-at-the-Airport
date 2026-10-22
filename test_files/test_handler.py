@@ -71,7 +71,7 @@ def test_build_key():
     Testing the S3 key build is proper
     '''
     key = handler.build_key("2026-01-01T07:00:00Z")
-    assert key == "raw/flightaware/airport=SAN/departures_2026-01-01"
+    assert key == "raw/flightaware/airport=KSAN/departures_2026-01-01.jsonl.gz"
  
  
 def test_writes_flights_to_s3(mock_s3, mock_get_flight_data, mock_flights, mock_window):
@@ -86,7 +86,7 @@ def test_writes_flights_to_s3(mock_s3, mock_get_flight_data, mock_flights, mock_
     # Checking mock_s3 bucket
     args = mock_s3.put_object.call_args.kwargs
     assert args["Bucket"] == "my-raw-bucket"
-    assert args["Key"] == "raw/flightaware/airport=SAN/departures_2026-01-01"
+    assert args["Key"] == "raw/flightaware/airport=KSAN/departures_2026-01-01.jsonl.gz"
  
     # Unzipping mock_s3 to count flights
     text = gzip.decompress(args["Body"]).decode("utf-8")

@@ -5,7 +5,7 @@ from urllib.parse import parse_qs, urlparse
 import requests
 
 my_api_key = os.environ.get("FLIGHT_API_KEY")
-query_url = "https://aeroapi.flightaware.com/aeroapi/airports/SAN/flights/departures"
+query_url = "https://aeroapi.flightaware.com/aeroapi/airports/KSAN/flights/departures"
 
 class OutsideDateRange(ValueError):
     pass
