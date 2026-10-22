@@ -1,5 +1,5 @@
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as F
@@ -34,7 +34,7 @@ def yesterday() -> str:
     '''
     Yesterday's date (UTC) in YYYY-MM-DD, matching the key the handler writes.
     '''
-    return (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
+    return (datetime.now(UTC) - timedelta(days=1)).strftime("%Y-%m-%d")
 
 def parse_timestamps(df: DataFrame) -> DataFrame:
     '''
