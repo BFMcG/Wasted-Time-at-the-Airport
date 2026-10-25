@@ -40,3 +40,10 @@ jobs:
             --function-name ${{ vars.LAMBDA_FUNC_NAME }} \
             --zip-file fileb://function.zip
           aws lambda wait function-updated --function-name ${{ vars.LAMBDA_FUNC_NAME }}
+
+      - name: Deploy Glue script
+        run: |
+          script_location=$(aws glue get-job --job-name ${{ vars.GLUE_JOB_NAME }} \
+            --query 'Job.Command.ScriptLocation' --output text)
+          aws s3 cp main/transformations.py "$script_location"
+          echo "Deployed transformations.py to $script_location for ${{ vars.GLUE_JOB_NAME }}"
