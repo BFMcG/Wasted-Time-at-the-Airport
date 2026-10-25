@@ -51,14 +51,17 @@ def get_flight_data(api_key: int, lookup_date_min: str, lookup_date_max: str):
 
         links = data.get("links")
         if not links:
+            print("No link")
             break
 
         next_page = links.get("next")
         if not next_page:
+            print("No next page")
             break
 
         cursor = parse_qs(urlparse(next_page).query).get("cursor", [None])[0]
         if not cursor:
+            print("No cursor")
             break
         flight_params["cursor"] = cursor
 

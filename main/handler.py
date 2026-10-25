@@ -2,6 +2,7 @@ import gzip
 import json
 import os
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import boto3
 from flight_aware_api import get_flight_data
@@ -14,12 +15,16 @@ S3_prefix = "raw/flightaware"
  
 def yesterday_date() -> tuple[str, str]:
     '''
-    Yesterday's full UTC day.
+    Yesterday's full UTC day, regardless of daylight savings.
     '''
-    max_date = datetime.now(UTC).replace(hour=7, minute=0, second=0, microsecond=0)
-    min_date = max_date - timedelta(days=1)
+    pst = ZoneInfo("America/Los_Angeles")
+    today_midnight = datetime.now(pst).replace(hour=0, minute=0, second=0, microsecond=0)
+    yesterday_midnight = today_midnight - timedelta(days=1)
     fmt = "%Y-%m-%dT%H:%M:%SZ"
-    return min_date.strftime(fmt), max_date.strftime(fmt)
+    return (
+        yesterday_midnight.astimezone(UTC).strftime(fmt),
+        today_midnight.astimezone(UTC).strftime(fmt)
+    )
 
 
 def build_key(date_window) -> str:

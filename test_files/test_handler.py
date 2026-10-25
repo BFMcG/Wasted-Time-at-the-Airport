@@ -1,7 +1,7 @@
 import gzip
 import json
 import os
-from datetime import datetime
+from datetime import datetime, UTC
 from unittest.mock import patch
 
 import pytest
@@ -22,6 +22,33 @@ def mock_flights():
 @pytest.fixture
 def mock_window():
     return {"start": "2026-01-01T07:00:00Z", "end": "2026-01-02T07:00:00Z"}
+
+@pytest.fixture
+def mock_dates():
+    return [
+        # During daylight
+        (datetime(2026, 10, 25, 10, 0, tzinfo=UTC),
+         ("2026-10-24T07:00:00Z", "2026-10-25T07:00:00Z")),
+        # After daylight
+        (datetime(2026, 12, 15, 10, 0, tzinfo=UTC),
+         ("2026-12-14T08:00:00Z", "2026-12-15T08:00:00Z")),
+        # Pre daylight next year
+        (datetime(2027, 2, 2, 10, 0, tzinfo=UTC),
+         ("2027-02-01T08:00:00Z", "2027-02-02T08:00:00Z")),
+        # Daylight next year
+        (datetime(2027, 8, 2, 10, 0, tzinfo=UTC),
+         ("2027-08-01T07:00:00Z", "2027-08-02T07:00:00Z"))
+    ]
+
+@pytest.fixture
+def freeze_time():
+    '''
+    Freeze datetime for testing yesterday date.
+    '''
+    with patch("handler.datetime") as fake_datetime:
+        def set_now(now):
+            fake_datetime.now.side_effect = lambda tz=None: now.astimezone(tz) if tz else now
+        yield set_now
 
 @pytest.fixture
 def mock_s3():
@@ -50,20 +77,15 @@ def env(monkeypatch):
 
 
 # Handler tests
-def test_yesterday_date():
+def test_yesterday_date(freeze_time, mock_dates):
     '''
     Testing if yesterday's date string is in the right format
     and the range is exactly one day long.
     '''
-    start, end = handler.yesterday_date()
+    for given, expected in mock_dates:
+        freeze_time(given)
 
-    assert start.endswith("T07:00:00Z")
-    assert end.endswith("T07:00:00Z")
-
-    parse_start = datetime.fromisoformat(start).date()
-    parse_end = datetime.fromisoformat(end).date()
-
-    assert (parse_end - parse_start).days == 1
+        assert handler.yesterday_date() == expected, f"given={given.isoformat()}"
  
  
 def test_build_key():
