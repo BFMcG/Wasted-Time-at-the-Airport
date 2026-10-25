@@ -35,9 +35,9 @@ def mock_flights_page():
 def mock_flights_range():
     return [
         {"flight_number": "1234", "ident_iata": "SWA",
-         "scheduled_out": "2026-01-01T12:00:00Z"},   # in range
+         "actual_off": "2026-01-01T12:00:00Z"},   # in range
         {"flight_number": "9012", "ident_iata": "AAL",
-         "scheduled_out": "2026-01-03T12:00:00Z"},   # out of range
+         "actual_off": "2026-01-03T12:00:00Z"},   # out of range
     ]
  
  
@@ -142,7 +142,7 @@ def test_runtime_error(mock_get, mock_sleep, mock_flights_page, mock_window):
                       status_code=429)
     ]
 
-    with pytest.raises(RuntimeError, match="Code 429: Rate limit exceeded on request 0"):
+    with pytest.raises(RuntimeError, match="Code 429: Rate limit exceeded on request 1"):
         get_flight_data(None, mock_window["start"], mock_window["end"])
 
     assert mock_sleep.call_count == 0

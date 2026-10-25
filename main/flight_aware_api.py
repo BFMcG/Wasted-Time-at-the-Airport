@@ -43,7 +43,7 @@ def get_flight_data(api_key: int, lookup_date_min: str, lookup_date_max: str):
 
         if r.status_code == 429:
             raise RateLimitExceeded(
-                f"Code 429: Rate limit exceeded on request {request_count - 1}"
+                f"Code 429: Rate limit exceeded on request {request_count}"
             )
         r.raise_for_status()
         data = r.json()
@@ -69,16 +69,16 @@ def get_flight_data(api_key: int, lookup_date_min: str, lookup_date_max: str):
         request_count += 1
 
     #Checking if all flights are within date range
-    no_scheduled_out = 0
+    no_actual_off = 0
 
     for idx, flight in enumerate(flights):
-        scheduled_out = flight.get("scheduled_out")
-        if not scheduled_out:
-            no_scheduled_out += 1
+        actual_off = flight.get("actual_off")
+        if not actual_off:
+            no_actual_off += 1
             continue
-        if scheduled_out < lookup_date_min or scheduled_out > lookup_date_max:
-            raise ValueError(f"Error: Flight {idx} is outside of scheduled date range")
-    print("No scheduled out: ", no_scheduled_out)
+        if actual_off < lookup_date_min or actual_off > lookup_date_max:
+            raise ValueError(f"Error: Flight {idx} is outside of scheduled date range: {actual_off}")
+    print("No scheduled out: ", no_actual_off)
 
 
     return flights
