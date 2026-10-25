@@ -18,16 +18,17 @@ PST = "America/Los_Angeles"
 TIMESTAMP_COLS = ["scheduled_out", "actual_out", "actual_off"]
 
 RAW_SCHEMA = StructType([
+    StructField("dt", StringType()),
     StructField("fa_flight_id", StringType()),
     StructField("ident_icao", StringType()),
     StructField("destination", StructType(
-        [StructField("code_icao", StringType()),]
+        [StructField("code_icao", StringType())]
         )),
     StructField("departure_delay", IntegerType()),
     StructField("scheduled_out", StringType()),
     StructField("actual_out", StringType()),
     StructField("actual_off", StringType()),
-    StructField("_ingested_at", StringType()),
+    StructField("_ingested_at", StringType())
 ])
 
 def yesterday() -> str:
@@ -48,7 +49,7 @@ def dedupe_flights(df: DataFrame) -> DataFrame:
     '''
     If there are duplicates keep the most recently ingested row per fa_flight_id.
     '''
-    latest_first = Window.partitionBy("fa_flight_id").orderBy(F.col("_ingested_at").desc())
+    latest_first = Window.partitionBy("dt", "fa_flight_id").orderBy(F.col("_ingested_at").desc())
     return (
         df.filter(F.col("fa_flight_id").isNotNull())
         .withColumn("_rn", F.row_number().over(latest_first))
@@ -78,7 +79,7 @@ def add_runway_delay(df: DataFrame) -> DataFrame:
     seconds = F.unix_timestamp("actual_off") - F.unix_timestamp("actual_out")
     df = df.withColumn("runway_delay_secs", F.when(seconds >= 0, seconds))
 
-    total = F.col("runway_delay_seconds")
+    total = F.col("runway_delay_secs")
     hours = F.floor(total / 3600).cast("int")
     minutes = F.floor(total % 3600 / 60).cast("int")
     secs = (total % 60).cast("int")
@@ -95,14 +96,16 @@ def dep_delay_display(df: DataFrame) -> DataFrame:
     '''
     df = df.withColumnRenamed("departure_delay", "departure_delay_secs")
 
-    total = F.col("departure_delay_seconds")
-    hours = F.floor(total / 3600).cast("int")
-    minutes = F.floor(total % 3600 / 60).cast("int")
-    secs = (total % 60).cast("int")
+    total = F.col("departure_delay_secs")
+    abs_total = F.abs(total)
+    hours = F.floor(abs_total / 3600).cast("int")
+    minutes = F.floor(abs_total % 3600 / 60).cast("int")
+    secs = (abs_total % 60).cast("int")
 
     return df.withColumn(
         "departure_delay",
-        F.when(total.isNotNull(), F.format_string("%02d:%02d:%02d", hours, minutes, secs)),
+        F.when(total < 0, F.format_string("-%02d:%02d:%02d", hours, minutes, secs))
+        .when(total >= 0, F.format_string("%02d:%02d:%02d", hours, minutes, secs))
     )
 
 def pst_time(df: DataFrame) -> DataFrame:
@@ -121,17 +124,17 @@ def clean_flights(df: DataFrame) -> DataFrame:
     df = pst_time(df)
 
     return df.select(
+        "dt",
         "fa_flight_id",
-        "ident_icao",
         "airline_code",
         "flight_number",
         F.col("destination.code_icao").alias("code_icao"),
         "scheduled_out",
         "actual_out",
         "actual_off",
-        "departure_delay_sec",
+        "departure_delay_secs",
         "departure_delay",
-        "runway_delay_sec",
+        "runway_delay_secs",
         "runway_delay"
     )
 
@@ -143,31 +146,42 @@ def main():
 
     args = getResolvedOptions(sys.argv, ["JOB_NAME", "RAW_BUCKET", "CLEAN_BUCKET"])
 
-    run_date = (
-        getResolvedOptions(sys.argv, ["RUN_DATE"])["RUN_DATE"]
-        if "--RUN_DATE" in sys.argv
-        else yesterday()
-    )
+    # Backfill option: --START_DATE / --END_DATE, default yesterday
+    if "--START_DATE" in sys.argv:
+        dates = getResolvedOptions(sys.argv, ["START_DATE", "END_DATE"])
+        start_date, end_date = dates["START_DATE"], dates["END_DATE"]
+    else:
+        start_date = end_date = yesterday()
 
     glue_context = GlueContext(SparkContext.getOrCreate())
     spark = glue_context.spark_session
     spark.conf.set("spark.sql.session.timeZone", "UTC")
+
+    # Only overwrite dt folders currently being written
+    spark.conf.set("spark.sql.sources.partitionOverwriteMode", "dynamic")
     job = Job(glue_context)
     job.init(args["JOB_NAME"], args)
 
-    src = f"s3://{args['RAW_BUCKET']}/{RAW_PREFIX}/airport={AIRPORT}/departures_{run_date}.jsonl.gz"
-    dst = f"s3://{args['CLEAN_BUCKET']}/{CLEAN_PREFIX}/airport={AIRPORT}/dt={run_date}/"
+    src = f"s3://{args['RAW_BUCKET']}/{RAW_PREFIX}/airport={AIRPORT}/departures_*.jsonl.gz"
+    dst = f"s3://{args['CLEAN_BUCKET']}/{CLEAN_PREFIX}/airport={AIRPORT}/"
 
-    raw = spark.read.schema(RAW_SCHEMA).json(src)
+    raw = (spark.read.schema(RAW_SCHEMA).json(src)
+           .withColumn("dt", F.regexp_extract(F.input_file_name(), 
+            r"departures_(\d{4}-\d{2}-\d{2})", 1))
+           .filter(F.col("dt").between(start_date, end_date)))
     clean = clean_flights(raw).cache()
 
     record_count = clean.count()
     if record_count == 0:
         raise RuntimeError(f"No clean flights produced from {src}")
 
-    # Overwrite only this day's partition so reruns don't create duplicates
-    clean.write.mode("overwrite").parquet(dst)
-    print(f"Wrote {record_count} flights to {dst}")
+    # One parquet file per day
+    clean.repartition("dt").write.mode("overwrite").partitionBy("dt").parquet(dst)
+
+    if "--START_DATE" in sys.argv:
+        print(f"Wrote {record_count} flights for {start_date} -> {end_date} to {dst}")
+    else:
+        print(f"Wrote {record_count} flights to {dst}")
 
     job.commit()
 
