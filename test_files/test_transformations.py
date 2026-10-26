@@ -282,9 +282,9 @@ def test_clean_flights(spark):
         schema,
     )
 
-    result = transformations.clean_flights(df)
+    mock_df = transformations.clean_flights(df)
 
-    assert result.columns == [
+    assert mock_df.columns == [
         "dt", "fa_flight_id", "airline_code", "flight_number", 
         "code_icao", "scheduled_out", "actual_out", "actual_off",
         "departure_delay_secs", "departure_delay", "runway_delay_secs", "runway_delay"
@@ -294,9 +294,9 @@ def test_clean_flights(spark):
     fmt = "yyyy-MM-dd HH:mm:ss"
     rows = sorted(
         tuple(r)
-        for r in result.select(
+        for r in mock_df.select(
             *[F.date_format(c, fmt).alias(c) if c in transformations.TIMESTAMP_COLS else c
-              for c in result.columns]
+              for c in mock_df.columns]
         ).collect()
     )
     assert rows == [
@@ -307,3 +307,22 @@ def test_clean_flights(spark):
          "2026-07-01 09:00:00", "2026-07-01 08:59:50", "2026-07-01 09:20:00",
          -10, "-00:00:10", 1210, "00:20:10"),
     ]
+
+def test_add_date_parts(spark):
+    df = spark.createDataFrame(
+        [
+            ("2026-01-01",), 
+            ("2026-12-31",)
+        ],
+        ["dt"]
+    )
+
+    mock_df = transformations.add_date_parts(df)
+
+    rows = [tuple(r) for r in mock_df.select("year", "month", "day").collect()]
+
+    assert rows== [
+        ("2026", "01", "01"),
+        ("2026", "12", "31"),
+    ]
+

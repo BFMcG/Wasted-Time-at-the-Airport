@@ -16,6 +16,7 @@ CLEAN_PREFIX = "clean/flightaware"
 PST = "America/Los_Angeles"
 
 TIMESTAMP_COLS = ["scheduled_out", "actual_out", "actual_off"]
+PARTITION_COLS = ["year", "month", "day"]
 
 RAW_SCHEMA = StructType([
     StructField("dt", StringType()),
@@ -138,6 +139,17 @@ def clean_flights(df: DataFrame) -> DataFrame:
         "runway_delay"
     )
 
+def add_date_parts(df: DataFrame) -> DataFrame:
+    '''
+    Splitting dt into year, month, and day inorder
+    for partitioning in the clean S3 bucket
+    '''
+    return (
+        df.withColumn("year", F.substring("dt", 1, 4))
+        .withColumn("month", F.substring("dt", 6, 2))
+        .withColumn("day", F.substring("dt", 9, 2))
+    )
+
 def main():
     from awsglue.context import GlueContext
     from awsglue.job import Job
@@ -176,7 +188,11 @@ def main():
         raise RuntimeError(f"No clean flights produced from {src}")
 
     # One parquet file per day
-    clean.repartition("dt").write.mode("overwrite").partitionBy("dt").parquet(dst)
+    (add_date_parts(clean)
+        .repartition(*PARTITION_COLS)
+        .write.mode("overwrite")
+        .partitionBy(*PARTITION_COLS)
+        .parquet(dst))
 
     if "--START_DATE" in sys.argv:
         print(f"Wrote {record_count} flights for {start_date} -> {end_date} to {dst}")
