@@ -83,6 +83,10 @@ def get_flight_data(api_key: int, lookup_date_min: str, lookup_date_max: str):
             raise ValueError(f"Error: Flight {idx} is outside of scheduled date range: {actual_off}")
     print("No scheduled out: ", no_actual_off)
 
+    # Checking if any flights were returned
+    if len(flights) == 0:
+        raise ValueError(f"No flights were recorded from the API")
+
 
     return flights
 
