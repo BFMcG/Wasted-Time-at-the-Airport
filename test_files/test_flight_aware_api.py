@@ -136,6 +136,9 @@ def test_outside_date_range(mock_get, mock_flights_range, mock_window):
         get_flight_data(None, mock_window["start"], mock_window["end"])
 
 def test_runtime_error(mock_get, mock_sleep, mock_flights_page, mock_window):
+    '''
+    Given a status_code of 429, a RuntimeError will occur.
+    '''
 
     mock_get.side_effect = [
         mock_response(mock_flights_page, next_link="/flights?cursor=abc123",
@@ -146,3 +149,15 @@ def test_runtime_error(mock_get, mock_sleep, mock_flights_page, mock_window):
         get_flight_data(None, mock_window["start"], mock_window["end"])
 
     assert mock_sleep.call_count == 0
+
+def test_no_flights(mock_get, mock_window):
+    '''
+    Given no test flights recieved a ValueError will occur.
+    '''
+
+    mock_get.return_value = mock_response([])
+
+    with pytest.raises(ValueError, match="No flights were recorded from the API"):
+            get_flight_data(None, mock_window["start"], mock_window["end"])
+
+    

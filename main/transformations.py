@@ -16,7 +16,7 @@ CLEAN_PREFIX = "clean/flightaware"
 PST = "America/Los_Angeles"
 
 TIMESTAMP_COLS = ["scheduled_out", "actual_out", "actual_off"]
-PARTITION_COLS = ["year", "month", "day"]
+
 
 RAW_SCHEMA = StructType([
     StructField("dt", StringType()),
@@ -187,11 +187,13 @@ def main():
     if record_count == 0:
         raise RuntimeError(f"No clean flights produced from {src}")
 
-    # One parquet file per day
+    # Writing parquet file by year, month, day
+    partition_cols = ["year", "month", "day"]
+
     (add_date_parts(clean)
-        .repartition(*PARTITION_COLS)
+        .repartition(*partition_cols)
         .write.mode("overwrite")
-        .partitionBy(*PARTITION_COLS)
+        .partitionBy(*partition_cols)
         .parquet(dst))
 
     if "--START_DATE" in sys.argv:
