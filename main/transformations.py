@@ -77,7 +77,7 @@ def add_runway_delay(df: DataFrame) -> DataFrame:
     runway_delay: mm:ss display
     Negative values become null.
     '''
-    seconds = F.unix_timestamp("actual_off") - F.unix_timestamp("actual_out")
+    seconds = (F.unix_timestamp("actual_off") - F.unix_timestamp("actual_out")).cast("int")
     df = df.withColumn("runway_delay_secs", F.when(seconds >= 0, seconds))
 
     total = F.col("runway_delay_secs")
