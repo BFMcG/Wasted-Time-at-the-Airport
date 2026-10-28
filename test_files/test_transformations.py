@@ -153,6 +153,8 @@ def test_add_runway_delay(spark):
 
     mock_df = transformations.add_runway_delay(df)
 
+    assert mock_df.schema['runway_delay_secs'].dataType == IntegerType()
+
     assert mock_df.columns == [
         "fa_flight_id", "actual_out", "actual_off", "runway_delay_secs", "runway_delay"
     ]
