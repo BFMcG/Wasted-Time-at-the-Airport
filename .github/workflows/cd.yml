@@ -47,3 +47,25 @@ jobs:
             --query 'Job.Command.ScriptLocation' --output text)
           aws s3 cp main/transformations.py "$script_location"
           echo "Deployed transformations.py to $script_location for ${{ vars.GLUE_JOB_NAME }}"
+
+      - name: Deploy Athena views
+        run: |
+          for file in sql/views/*.sql; do
+            echo "Running $file"
+            query_id=$(aws athena start-query-execution \
+              --work-group flights-pipeline \
+              --query-string "$(cat "$file")" \
+              --query QueryExecutionId --output text)
+            while true; do
+              state=$(aws athena get-query-execution --query-execution-id "$query_id" \
+                --query QueryExecution.Status.State --output text)
+              case "$state" in
+                SUCCEEDED) echo "  succeeded"; break ;;
+                FAILED|CANCELLED)
+                  aws athena get-query-execution --query-execution-id "$query_id" \
+                    --query QueryExecution.Status.StateChangeReason --output text
+                  exit 1 ;;
+                *) sleep 2 ;;
+              esac
+            done
+          done
