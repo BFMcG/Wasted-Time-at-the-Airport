@@ -50,7 +50,7 @@ jobs:
 
       - name: Deploy Athena views
         run: |
-          for file in sql/views/*.sql; do
+          for file in main/sql/*.sql; do
             echo "Running $file"
             query_id=$(aws athena start-query-execution \
               --work-group flights-pipeline \
