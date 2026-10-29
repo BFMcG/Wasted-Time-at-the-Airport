@@ -153,58 +153,22 @@ def test_add_runway_delay(spark):
 
     mock_df = transformations.add_runway_delay(df)
 
-    assert mock_df.schema['runway_delay_secs'].dataType == IntegerType()
+    assert mock_df.schema['runway_delay'].dataType == IntegerType()
 
     assert mock_df.columns == [
-        "fa_flight_id", "actual_out", "actual_off", "runway_delay_secs", "runway_delay"
+        "fa_flight_id", "actual_out", "actual_off", "runway_delay"
     ]
 
     rows = sorted(
-        (r["fa_flight_id"], r["runway_delay_secs"], r["runway_delay"])
-        for r in mock_df.select("fa_flight_id", "runway_delay_secs", "runway_delay").collect()
+        (r["fa_flight_id"], r["runway_delay"])
+        for r in mock_df.select("fa_flight_id", "runway_delay").collect()
     )
     assert rows == [
-        ("FLT1", 752, "00:12:32"),
-        ("FLT2", 4325, "01:12:05"),
-        ("FLT3", 0, "00:00:00"),
-        ("FLT4", None, None),
-        ("FLT5", None, None)
-    ]
-
-def test_dep_delay_display(spark):
-    '''
-    Using mock dataframe to test if departure 
-    delay is created and is formatted correctly. 
-    dep_delay_secs is in seconds, and missing times become null.
-    '''
-
-    df = spark.createDataFrame(
-        [
-            ("FLT1", 123),  # normal
-            ("FLT2", 4567), # over an hour
-            ("FLT3", 0),    # No delay
-            ("FLT4", -10),  # Out of gate early
-            ("FLT5", None)  # No delay recorded
-        ],
-        ["fa_flight_id", "departure_delay"]
-    )
-
-    mock_df = transformations.dep_delay_display(df)
-
-    assert mock_df.columns == [
-        "fa_flight_id", "departure_delay_secs", "departure_delay"
-    ]
-
-    rows = sorted(
-        (r["fa_flight_id"], r["departure_delay_secs"], r["departure_delay"])
-        for r in mock_df.select("fa_flight_id", "departure_delay_secs", "departure_delay").collect()
-    )
-    assert rows == [
-        ("FLT1", 123, "00:02:03"),
-        ("FLT2", 4567, "01:16:07"),
-        ("FLT3", 0, "00:00:00"),
-        ("FLT4", -10, "-00:00:10"),
-        ("FLT5", None, None)
+        ("FLT1", 752),
+        ("FLT2", 4325),
+        ("FLT3", 0),
+        ("FLT4", None),
+        ("FLT5", None)
     ]
 
 def test_pst_time(spark):
@@ -289,7 +253,7 @@ def test_clean_flights(spark):
     assert mock_df.columns == [
         "dt", "fa_flight_id", "airline_code", "flight_number", 
         "code_icao", "scheduled_out", "actual_out", "actual_off",
-        "departure_delay_secs", "departure_delay", "runway_delay_secs", "runway_delay"
+        "departure_delay", "runway_delay"
     ]
 
     # Formatting UTC in Spark
@@ -304,10 +268,10 @@ def test_clean_flights(spark):
     assert rows == [
         ("2026-07-01", "FLT1", "SWA", "1234", "KLAX",
          "2026-07-01 07:00:00", "2026-07-01 07:05:00", "2026-07-01 07:17:32",
-         300, "00:05:00", 752, "00:12:32"),
+         300, 752),
         ("2026-07-01", "FLT2", "UAL", "567", "KSFO",
          "2026-07-01 09:00:00", "2026-07-01 08:59:50", "2026-07-01 09:20:00",
-         -10, "-00:00:10", 1210, "00:20:10"),
+         -10, 1210),
     ]
 
 def test_add_date_parts(spark):
