@@ -73,41 +73,15 @@ def split_ident(df: DataFrame) -> DataFrame:
 def add_runway_delay(df: DataFrame) -> DataFrame:
     '''
     Seconds between leaving the gate (actual_out) and wheels up (actual_off).
-    runway_delay_seconds: total seconds
-    runway_delay: mm:ss display
     Negative values become null.
     '''
     seconds = (F.unix_timestamp("actual_off") - F.unix_timestamp("actual_out")).cast("int")
-    df = df.withColumn("runway_delay_secs", F.when(seconds >= 0, seconds))
-
-    total = F.col("runway_delay_secs")
-    hours = F.floor(total / 3600).cast("int")
-    minutes = F.floor(total % 3600 / 60).cast("int")
-    secs = (total % 60).cast("int")
 
     return df.withColumn(
-        "runway_delay",
-        F.when(total.isNotNull(), F.format_string("%02d:%02d:%02d", hours, minutes, secs)),
-    )
+        "runway_delay", 
+        F.when((seconds >= 0) & seconds.isNotNull(), seconds)
+        )
 
-def dep_delay_display(df: DataFrame) -> DataFrame:
-    '''
-    Changing the name of departure_delay to departure_delay_secs.
-    Creating departure_delay: mm:ss display.
-    '''
-    df = df.withColumnRenamed("departure_delay", "departure_delay_secs")
-
-    total = F.col("departure_delay_secs")
-    abs_total = F.abs(total)
-    hours = F.floor(abs_total / 3600).cast("int")
-    minutes = F.floor(abs_total % 3600 / 60).cast("int")
-    secs = (abs_total % 60).cast("int")
-
-    return df.withColumn(
-        "departure_delay",
-        F.when(total < 0, F.format_string("-%02d:%02d:%02d", hours, minutes, secs))
-        .when(total >= 0, F.format_string("%02d:%02d:%02d", hours, minutes, secs))
-    )
 
 def pst_time(df: DataFrame) -> DataFrame:
     '''
@@ -121,7 +95,6 @@ def clean_flights(df: DataFrame) -> DataFrame:
     df = dedupe_flights(parse_timestamps(df))
     df = split_ident(df)
     df = add_runway_delay(df)
-    df = dep_delay_display(df)
     df = pst_time(df)
 
     return df.select(
@@ -133,9 +106,7 @@ def clean_flights(df: DataFrame) -> DataFrame:
         "scheduled_out",
         "actual_out",
         "actual_off",
-        "departure_delay_secs",
         "departure_delay",
-        "runway_delay_secs",
         "runway_delay"
     )
 
