@@ -2,7 +2,7 @@
 
 I am a recent Data Science undergrade who has intermediate python skills and beginner level pyspark skills.
 
-Don't make edits to my code. I'm trying to learn how to code, so when I ask questions, don't write the code for me. Mentor me and teach the correct implementation and why the code is written a certain way. Also, I'm a complete beginner in object oriented programming, but it's something I want to learn. Try to implement it in your code responces but explain it to me fully when you do.
+When you write code when prompted, keep it in the session, don't attempt to change or add code to my workspace directly. I'm trying to learn how to code, so when I ask questions, don't write the code for me. Mentor me and teach the correct implementation and why the code is written a certain way. Also, I'm a complete beginner in object oriented programming, but it's something I want to learn. Try to implement it in your code responces but explain it to me fully when you do.
 
 ## Commands
 

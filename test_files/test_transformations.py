@@ -1,30 +1,7 @@
-import os
-import sys
 from datetime import datetime, UTC
-import pytest
 import transformations
 from pyspark.sql import functions as F
 from pyspark.sql.types import StringType, StructField, StructType, TimestampType, IntegerType
-from pyspark.sql import SparkSession
-
-@pytest.fixture(scope="session")
-def spark():
-    '''
-    Local spark session for mock data frames
-    '''
-    os.environ["PYSPARK_PYTHON"] = sys.executable
-
-    session = (
-        SparkSession.builder
-        .master("local[1]")
-        .appName("tests")
-        .config("spark.sql.session.timeZone", "UTC")
-        .config("spark.sql.shuffle.partitions", "1")
-        .getOrCreate()
-    )
-    yield session
-    session.stop()
-
     
 
 def test_yesterday():
