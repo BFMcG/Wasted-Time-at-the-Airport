@@ -4,3 +4,4 @@
 pytest
 .venv/
 .ruff_cache/
+.claude
