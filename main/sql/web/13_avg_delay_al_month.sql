@@ -1,6 +1,5 @@
-CREATE OR REPLACE VIEW flights.web_avg_delay_al_today as
+CREATE OR REPLACE VIEW flights.web_avg_delay_al_month as
 SELECT
-    dt,
     airline_name,
     ROUND(AVG(CASE
         WHEN runway_delay > 1800 THEN (runway_delay + departure_delay)
