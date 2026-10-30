@@ -15,8 +15,8 @@ with filtered_tds as (
 )
 
 SELECT airline_name,
-    CAST(average_delay_secs / 3600 as INT) as average_delay_hours,
-    CAST(average_delay_secs % 3600 / 60 as INT) as average_delay_minutes,
-    average_delay_secs
+    CAST(average_delay_secs / 3600 as INT) as avg_delay_hours,
+    CAST(average_delay_secs % 3600 / 60 as INT) as avg_delay_minutes,
+    CAST(average_delay_secs % 60 as INT) as avg_delay_secs
 FROM filtered_tds
 ORDER BY average_delay_secs DESC
