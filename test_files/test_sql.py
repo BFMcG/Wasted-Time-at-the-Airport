@@ -146,8 +146,8 @@ def test_avg_delay_al_today(spark):
 
     df = spark.sql(
         '''
-        SELECT airline_name, average_delay_hours,
-        average_delay_minutes, average_delay_secs
+        SELECT airline_name, avg_delay_hours,
+        avg_delay_minutes, avg_delay_secs
         FROM web_avg_delay_al_today
         '''
     ).collect()
@@ -157,8 +157,8 @@ def test_avg_delay_al_today(spark):
     )
 
     expected = sorted([
-        ("United", 0, 38, 2281),
-        ("Delta", 0, 10, 600),
+        ("United", 0, 38, 1),
+        ("Delta", 0, 10, 0),
         ("Southwest", 0, 0, 0)
     ])
 
@@ -170,8 +170,8 @@ def test_avg_delay_al_month(spark):
 
     df = spark.sql(
         '''
-        SELECT airline_name, average_delay_hours,
-        average_delay_minutes, average_delay_secs
+        SELECT airline_name, avg_delay_hours,
+        avg_delay_minutes, avg_delay_secs
         FROM web_avg_delay_al_month
         '''
     ).collect()
@@ -181,9 +181,9 @@ def test_avg_delay_al_month(spark):
     )
 
     expected = sorted([
-        ("United", 0, 38, 2281),
-        ("Delta", 0, 10, 600),
-        ("Southwest", 0, 1, 60)
+        ("United", 0, 38, 1),
+        ("Delta", 0, 10, 0),
+        ("Southwest", 0, 1, 0)
     ])
 
     assert rows == expected
