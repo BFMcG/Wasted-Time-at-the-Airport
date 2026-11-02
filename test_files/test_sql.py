@@ -7,6 +7,16 @@ from pyspark.sql.types import (
     StructType,
 )
 
+###########################################################
+#                   IMPORTANT MESSAGE:                    #
+###########################################################
+
+# If queires are run between 12:00am and 4:00am (or until
+# the pipeline finishes) they will be empty because 
+# current_timestamp is being used to filter data, so the
+# query will be looking for data that hasn't been ingested yet.
+
+
 
 SCHEMA = StructType([
     StructField("dt", StringType()),
@@ -22,9 +32,14 @@ SCHEMA = StructType([
 # So pytest will run properly from inside test_files/
 DIR = Path(__file__).parent.parent / "main" / "sql"
 
+# Query dates from the day before (2026-01-02)
+TEST_DATE = "2026-01-03"
+
 def run_view(spark, sql_file):
     sql = (DIR / sql_file).read_text()
-    sql = sql.replace("CREATE OR REPLACE VIEW", "CREATE OR REPLACE TEMP VIEW").replace("flights.", "")
+    sql = sql.replace("CREATE OR REPLACE VIEW", "CREATE OR REPLACE TEMP VIEW")
+    sql = sql.replace("flights.", "")
+    sql = sql.replace("date(current_timestamp AT TIME ZONE 'America/Los_Angeles')", f"DATE '{TEST_DATE}'")
     spark.sql(sql)
 
 @pytest.fixture()
@@ -41,6 +56,8 @@ def mock_airlines(spark):
             ("2026-01-02", 2026, 1, 2, "SWA", "321", 64000, 600),
             # Flight from the previous day
             ("2026-01-01", 2026, 1, 1, "SWA", "654", 120, 600),
+            # Flight from only different year
+            ("2025-01-02", 2025, 1, 2, "DAL", "000", 392033, 600),
             # Flight from different year/month/day
             ("2025-12-31", 2025, 12, 31, "UAL", "111", 1200, 100),
             # Negative delay: flight left early
@@ -73,6 +90,7 @@ def test_airlines_tracked(spark):
     )
 
     expected = sorted([
+        ("DAL", "000", "Delta", 392033),
         ("SWA", "321", "Southwest", 64000),
         ("UAL", "1234", "United", 3661),
         ("DAL", "3333", "Delta", 1200),

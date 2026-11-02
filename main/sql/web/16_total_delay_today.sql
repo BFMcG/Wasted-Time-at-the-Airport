@@ -4,7 +4,9 @@ with tds as (
         SUM(CASE WHEN total_delay_secs < 0 
                 THEN 0 ELSE total_delay_secs END) as sum_delay_secs
     FROM flights.airlines_tracked
-    WHERE dt = (SELECT MAX(dt) FROM flights.airlines_tracked)
+    WHERE year = year(date(current_timestamp AT TIME ZONE 'America/Los_Angeles') - interval '1' day)
+    AND month = month(date(current_timestamp AT TIME ZONE 'America/Los_Angeles') - interval '1' day)
+    AND day = day(date(current_timestamp AT TIME ZONE 'America/Los_Angeles') - interval '1' day)
 )
 
 SELECT flights_today,
