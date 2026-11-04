@@ -5,7 +5,8 @@ with filtered_tds as (
     -- no deflated average for leaving early
         CAST(ROUND(AVG(CASE
             WHEN total_delay_secs < 0 THEN 0 
-            ELSE total_delay_secs END)) as INT) as average_delay_secs
+            ELSE total_delay_secs END)) as INT) as average_delay_secs,
+        COUNT(total_delay_secs) as num_flights
     FROM flights.airlines_tracked
     WHERE year = year(date(current_timestamp AT TIME ZONE 'America/Los_Angeles') - interval '1' day)
     AND month = month(date(current_timestamp AT TIME ZONE 'America/Los_Angeles') - interval '1' day)
@@ -16,6 +17,7 @@ with filtered_tds as (
 )
 
 SELECT airline_name,
+    num_flights,
     CAST(average_delay_secs / 3600 as INT) as avg_delay_hours,
     CAST(average_delay_secs % 3600 / 60 as INT) as avg_delay_minutes,
     CAST(average_delay_secs % 60 as INT) as avg_delay_secs
