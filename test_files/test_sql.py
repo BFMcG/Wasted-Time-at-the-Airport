@@ -164,7 +164,7 @@ def test_avg_delay_al_today(spark):
 
     df = spark.sql(
         '''
-        SELECT airline_name, avg_delay_hours,
+        SELECT airline_name, num_flights, avg_delay_hours,
         avg_delay_minutes, avg_delay_secs
         FROM web_avg_delay_al_today
         '''
@@ -175,9 +175,9 @@ def test_avg_delay_al_today(spark):
     )
 
     expected = sorted([
-        ("United", 0, 38, 1),
-        ("Delta", 0, 10, 0),
-        ("Southwest", 0, 0, 0)
+        ("United", 2, 0, 38, 1),
+        ("Delta", 2, 0, 10, 0),
+        ("Southwest", 1, 0, 0, 0)
     ])
 
     assert rows == expected
@@ -188,7 +188,7 @@ def test_avg_delay_al_month(spark):
 
     df = spark.sql(
         '''
-        SELECT airline_name, avg_delay_hours,
+        SELECT airline_name, num_flights, avg_delay_hours,
         avg_delay_minutes, avg_delay_secs
         FROM web_avg_delay_al_month
         '''
@@ -199,9 +199,9 @@ def test_avg_delay_al_month(spark):
     )
 
     expected = sorted([
-        ("United", 0, 38, 1),
-        ("Delta", 0, 10, 0),
-        ("Southwest", 0, 1, 0)
+        ("United", 2, 0, 38, 1),
+        ("Delta", 2, 0, 10, 0),
+        ("Southwest", 2, 0, 1, 0)
     ])
 
     assert rows == expected
@@ -212,7 +212,8 @@ def test_pct_delay_today(spark):
 
     df = spark.sql(
         '''
-        SELECT airline_name, pct_of_flights_delayed
+        SELECT airline_name, 
+        pct_of_flights_delayed, num_flights
         FROM web_pct_delays_today
         '''
     ).collect()
@@ -222,9 +223,9 @@ def test_pct_delay_today(spark):
     )
 
     expected = sorted([
-        ("United", 100.00),
-        ("Southwest", 50.00),
-        ("Delta", 50.00)
+        ("United", 100.00, 2),
+        ("Southwest", 50.00, 2),
+        ("Delta", 50.00, 2)
     ])
 
     assert rows == expected
@@ -235,7 +236,8 @@ def test_pct_delay_month(spark):
 
     df = spark.sql(
         '''
-        SELECT airline_name, pct_of_flights_delayed
+        SELECT airline_name, 
+        pct_of_flights_delayed, num_flights
         FROM web_pct_delays_month
         '''
     ).collect()
@@ -245,9 +247,9 @@ def test_pct_delay_month(spark):
     )
 
     expected = sorted([
-        ("United", 100.00),
-        ("Delta", 50.00),
-        ("Southwest", 33.33)
+        ("United", 100.00, 2),
+        ("Delta", 50.00, 2),
+        ("Southwest", 33.33, 3)
     ])
 
     assert rows == expected
