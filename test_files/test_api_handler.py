@@ -8,7 +8,7 @@ import pytest
 
 os.environ.setdefault("AWS_DEFAULT_REGION", "us-west-2")
 
-import handler
+import api_handler
 
 
 # handler test fixtures
@@ -45,7 +45,7 @@ def freeze_time():
     '''
     Freeze datetime for testing yesterday date.
     '''
-    with patch("handler.datetime") as fake_datetime:
+    with patch("api_handler.datetime") as fake_datetime:
         def set_now(now):
             fake_datetime.now.side_effect = lambda tz=None: now.astimezone(tz) if tz else now
         yield set_now
@@ -55,7 +55,7 @@ def mock_s3():
     '''
     Replaces the S3 bucket.
     '''
-    with patch("handler.s3") as fake:
+    with patch("api_handler.s3") as fake:
         yield fake
  
 @pytest.fixture
@@ -63,7 +63,7 @@ def mock_get_flight_data():
     '''
     Replaces get_flight_data function for testing the handler.
     '''
-    with patch("handler.get_flight_data") as fake:
+    with patch("api_handler.get_flight_data") as fake:
         yield fake
 
 @pytest.fixture(autouse=True)
@@ -85,14 +85,14 @@ def test_yesterday_date(freeze_time, mock_dates):
     for given, expected in mock_dates:
         freeze_time(given)
 
-        assert handler.yesterday_date() == expected, f"given={given.isoformat()}"
+        assert api_handler.yesterday_date() == expected, f"given={given.isoformat()}"
  
  
 def test_build_key():
     '''
     Testing the S3 key build is proper
     '''
-    key = handler.build_key("2026-01-01T07:00:00Z")
+    key = api_handler.build_key("2026-01-01T07:00:00Z")
     assert key == "raw/flightaware/airport=KSAN/departures_2026-01-01.jsonl.gz"
  
  
@@ -103,7 +103,7 @@ def test_writes_flights_to_s3(mock_s3, mock_get_flight_data, mock_flights, mock_
     '''
     mock_get_flight_data.return_value = mock_flights
 
-    result = handler.handler(mock_window, None)
+    result = api_handler.handler(mock_window, None)
  
     # Checking mock_s3 bucket
     args = mock_s3.put_object.call_args.kwargs
@@ -135,7 +135,7 @@ def test_no_flights(mock_s3, mock_get_flight_data, mock_window):
     mock_get_flight_data.return_value = []
 
     with pytest.raises(RuntimeError) as error:
-        handler.handler(mock_window, None)
+        api_handler.handler(mock_window, None)
 
     expected = (
         f"statusCode: 200, flights empty for {mock_window['start']} -> {mock_window['end']}."
@@ -155,7 +155,7 @@ def test_missing_env(monkeypatch, mock_get_flight_data):
     # No bucket
     monkeypatch.delenv("RAW_BUCKET")
     with pytest.raises(RuntimeError) as error:
-        handler.handler({}, None)
+        api_handler.handler({}, None)
 
     expected = ("RAW_BUCKET environment variable is not set")
 
@@ -165,7 +165,7 @@ def test_missing_env(monkeypatch, mock_get_flight_data):
     monkeypatch.setenv("RAW_BUCKET", "my-raw-bucket")
     monkeypatch.delenv("FLIGHT_API_KEY")
     with pytest.raises(RuntimeError) as error2:
-        handler.handler({}, None)
+        api_handler.handler({}, None)
 
     expected2 = ("FLIGHT_API_KEY environment variable is not set")
 

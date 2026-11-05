@@ -25,7 +25,7 @@ jobs:
       - name: Build Lambda package
         run: |
           pip install requests -t package
-          cp main/handler.py main/flight_aware_api.py package/
+          cp main/api_handler.py main/flight_aware_api.py package/
           cd package && zip -r ../function.zip .
 
       - name: Configure AWS credentials
