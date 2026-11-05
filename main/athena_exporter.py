@@ -35,10 +35,12 @@ class AthenaExporter:
             if state == 'SUCCEEDED':
                 return None
             elif state in ['FAILED', 'CANCELLED']:
-                raise RuntimeError(f"Query {state} reason: {response['QueryExecution']['Status'].get('StateChangeReason')}")
+                raise RuntimeError(f"Query {state} reason: "
+                                   f"{response['QueryExecution']['Status'].get('StateChangeReason')}")
             time.sleep(self.poll_seconds)
             if time.monotonic() > time_out:
-                raise TimeoutError(f"Query took longer than {self.poll_timeout} seconds to complete, State: {state}.")
+                raise TimeoutError(f"Query took longer than {self.poll_timeout} "
+                                   f"seconds to complete, State: {state}.")
 
     def get_rows(self, query_id) -> list[dict]:
         '''
