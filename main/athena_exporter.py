@@ -63,7 +63,7 @@ class AthenaExporter:
                     for col, cell in zip(column_info, cells, strict=True)
                 }
                 result.append(data)
-
+                
         return result
 
     @staticmethod

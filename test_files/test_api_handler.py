@@ -98,7 +98,7 @@ def test_build_key():
  
 def test_writes_flights_to_s3(mock_s3, mock_get_flight_data, mock_flights, mock_window):
     '''
-    Tests S3 environment, the flights are in teh json body,
+    Tests S3 environment, the flights are in the json body,
     and all of the expected return values match.
     '''
     mock_get_flight_data.return_value = mock_flights
@@ -114,6 +114,7 @@ def test_writes_flights_to_s3(mock_s3, mock_get_flight_data, mock_flights, mock_
     text = gzip.decompress(args["Body"]).decode("utf-8")
     lines = text.split("\n")
     assert len(lines) == 2
+    
     # Checking first flight and _ingested_at
     first_flight = json.loads(lines[0])
     assert first_flight["fa_flight_id"] == "FLT1"

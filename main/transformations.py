@@ -58,6 +58,12 @@ def dedupe_flights(df: DataFrame) -> DataFrame:
         .drop("_rn")
     )
 
+def drop_missing_departure(df: DataFrame) -> DataFrame:
+    '''
+    If there are flights with a missing departure delay they are droppped.
+    '''
+    return (df.filter(F.col("departure_delay").isNotNull()))
+
 def split_ident(df: DataFrame) -> DataFrame:
     '''
     Splitting ident_icao into flight_number and airline icao code.
@@ -93,6 +99,7 @@ def pst_time(df: DataFrame) -> DataFrame:
 
 def clean_flights(df: DataFrame) -> DataFrame:
     df = dedupe_flights(parse_timestamps(df))
+    df = drop_missing_departure(df)
     df = split_ident(df)
     df = add_runway_delay(df)
     df = pst_time(df)
@@ -140,6 +147,25 @@ def main():
     spark = glue_context.spark_session
     spark.conf.set("spark.sql.session.timeZone", "UTC")
 
+
+    # Logging dropped flights due to missing departure_delay
+    deduped = dedupe_flights(parse_timestamps(raw))
+    null_dd_flights = deduped.filter(F.col("departure_delay").isNull())
+    missing = null_dd_flights.count()
+    if missing > 0:
+        print(f"Dropped {missing} flights with no departure_delay")
+        missing_flights = (null_dd_flights
+                           .select("fa_flight_id", "scheduled_out", "actual_out")
+                           .limit(20)
+                           .collect())
+        for flight in missing_flights:
+            flight_id = flight["fa_flight_id"]
+            so = flight["scheduled_out"]
+            ao = flight["actual_out"]
+            print(f"Missing departure_delay from flight {flight_id} "
+                  f"with scheduled_out {so}, actual_out {ao}.")
+
+            
     # Only overwrite dt folders currently being written
     spark.conf.set("spark.sql.sources.partitionOverwriteMode", "dynamic")
     job = Job(glue_context)
@@ -157,6 +183,7 @@ def main():
     record_count = clean.count()
     if record_count == 0:
         raise RuntimeError(f"No clean flights produced from {src}")
+
 
     # Writing parquet file by year, month, day
     partition_cols = ["year", "month", "day"]
