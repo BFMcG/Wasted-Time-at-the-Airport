@@ -7,10 +7,10 @@ from zoneinfo import ZoneInfo
 import boto3
 from flight_aware_api import get_flight_data
 
+AIRPORT = "KSAN"
+S3_PREFIX = "raw/flightaware"
+
 s3 = boto3.client("s3")
- 
-Airport = "KSAN"
-S3_prefix = "raw/flightaware"
  
  
 def yesterday_date() -> tuple[str, str]:
@@ -34,7 +34,7 @@ def build_key(date_window) -> str:
     '''
     dt = date_window[:-10]
     return (
-        f"{S3_prefix}/airport={Airport}/"
+        f"{S3_PREFIX}/airport={AIRPORT}/"
         f"departures_{dt}.jsonl.gz"
     )
  

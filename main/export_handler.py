@@ -9,6 +9,8 @@ from athena_exporter import AthenaExporter
 S3_PREFIX = "data/web"
 AIRPORT = "KSAN"
 
+
+
 VIEWS = [
     "web_avg_delay_al_month",
     "web_avg_delay_al_today",
@@ -28,12 +30,12 @@ def handler(event, context):
 
     zone = ZoneInfo("America/Los_Angeles")
     data_date = (datetime.now(zone).date() - timedelta(days=1)).isoformat()
-
-    s3 = boto3.client("s3")
     bucket = os.environ.get("WEB_BUCKET")
 
     if not bucket:
         raise RuntimeError("WEB_BUCKET environment variable is not set")
+
+    s3 = boto3.client("s3")
 
     if context:
         print(
@@ -48,7 +50,6 @@ def handler(event, context):
         workgroup="flight-aggregations",
         database="flights"
     )
-
 
 
     all_views = athena_exp.fetch_views(VIEWS)

@@ -76,6 +76,28 @@ def test_dedupe_flights(spark):
         ("2026-10-22", "FLT2", old.strftime("%Y-%m-%d %H:%M:%S"))
     ]
 
+def test_drop_missing_departure(spark):
+    '''
+    Using mock dataframe to test if missing departure_delay
+    rows are dropped.
+    '''
+    df = spark.createDataFrame(
+        [
+            ("FLT1", 120),
+            ("FLT2", None)
+        ],
+        ["fa_flight_id", "departure_delay"]
+    )
+
+    mock_df = transformations.drop_missing_departure(df)
+    
+    rows = sorted(
+        (r["fa_flight_id"], r["departure_delay"])
+        for r in mock_df.collect()
+    )
+
+    assert rows == [("FLT1", 120)]
+
 def test_split_ident(spark):
     '''
     Using mock dataframe to test if ident_icao is split into
