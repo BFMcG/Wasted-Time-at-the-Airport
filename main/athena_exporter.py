@@ -10,16 +10,16 @@ class AthenaExporter:
             self.poll_timeout = poll_timeout
 
     def start_query(self, sql) -> str:
-         '''
-         Getting query execution id from Athena given SQL query.
-         '''
-         response = self.athena_client.start_query_execution(
-               QueryString=sql,
-               QueryExecutionContext={'Database': self.database},
-               WorkGroup=self.workgroup
-            )
+        '''
+        Getting query execution id from Athena given SQL query.
+        '''
+        response = self.athena_client.start_query_execution(
+            QueryString=sql,
+            QueryExecutionContext={'Database': self.database},
+            WorkGroup=self.workgroup
+        )
 
-         return response['QueryExecutionId']
+        return response['QueryExecutionId']
 
     def wait_for_query(self, query_id) -> None:
         '''
