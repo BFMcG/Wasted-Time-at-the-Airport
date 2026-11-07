@@ -209,6 +209,41 @@ def test_pst_time(spark):
         for c in cols:
             assert rows[flight][c] == value, f"{flight} {c}"
 
+def test_log_dropped_flights(spark, capsys):
+    '''
+    Using mock dataframe to test if missing departure_delay
+    rows are dropped.
+    '''
+    sch_out, act_out, act_off = (
+        "2026-10-23T07:00:00Z", "2026-10-23T07:05:00Z", "2026-10-23T07:15:00Z"
+    )
+    old, new = "2026-10-24T07:00:00Z", "2026-10-24T08:00:00Z"
+
+    cols = ["dt", "fa_flight_id", "departure_delay", "scheduled_out",
+            "actual_out", "actual_off", "_ingested_at"]
+
+    df = spark.createDataFrame(
+            [
+                ("2026-10-23", "FLT1", 120, sch_out, act_out, act_off, old),   # older duplicate -> dropped
+                ("2026-10-23", None, 330, sch_out, act_out, act_off, new),     # null id -> dropped
+                ("2026-10-23", "FLT1", 450, sch_out, act_out, act_off, new),   # newer duplicate -> kept
+                ("2026-10-23", "FLT2", None, sch_out, act_out, act_off, new),  # missing delay -> reported
+                ("2026-10-23", "FLT3", 0, sch_out, act_out, act_off, new),     # on time -> kept
+            ],
+            cols
+        )
+
+    dropped_deduped, missing = transformations.log_dropped_flights(df)
+
+    assert dropped_deduped == 2
+    assert missing == 1
+
+    output = capsys.readouterr().out
+    assert "Dropped 2 flight(s) that were duplicates or null fa_flight_id." in output
+    assert "Dropped 1 flight(s) with no departure_delay." in output
+    assert f"Missing departure_delay from flight FLT2 " in output
+    assert "FLT3" not in output
+
 def test_clean_flights(spark):
     '''
     Using a mock raw dataframe of two flights (one late, one early)
