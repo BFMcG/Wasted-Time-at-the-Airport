@@ -97,6 +97,33 @@ def pst_time(df: DataFrame) -> DataFrame:
         df = df.withColumn(c, F.from_utc_timestamp(c, PST))
     return df
 
+def log_dropped_flights(raw: DataFrame, max_rows=20) -> tuple[int, int]:
+    '''
+    Prints number flights that have null departure_delay before they are dropped 
+    and the number of flights that were dropped from dedupe_flights function.
+    '''
+    deduped = dedupe_flights(parse_timestamps(raw))
+    dropped_deduped = raw.count() - deduped.count()
+    print(f"Dropped {dropped_deduped} flight(s) that were duplicates or "
+          f"null fa_flight_id.")
+
+    null_dd_flights = deduped.filter(F.col("departure_delay").isNull())
+    missing = null_dd_flights.count()
+    print(f"Dropped {missing} flight(s) with no departure_delay.")
+    if missing > 0:
+        missing_flights = (null_dd_flights
+                            .select("fa_flight_id", "scheduled_out", "actual_out")
+                            .limit(max_rows)
+                            .collect())
+        for flight in missing_flights:
+            flight_id = flight["fa_flight_id"]
+            so = flight["scheduled_out"]
+            ao = flight["actual_out"]
+            print(f"Missing departure_delay from flight {flight_id} "
+                  f"with scheduled_out {so} UTC, actual_out {ao} UTC.")
+
+    return dropped_deduped, missing
+
 def clean_flights(df: DataFrame) -> DataFrame:
     df = dedupe_flights(parse_timestamps(df))
     df = drop_missing_departure(df)
@@ -146,25 +173,6 @@ def main():
     glue_context = GlueContext(SparkContext.getOrCreate())
     spark = glue_context.spark_session
     spark.conf.set("spark.sql.session.timeZone", "UTC")
-
-
-    # Logging dropped flights due to missing departure_delay
-    deduped = dedupe_flights(parse_timestamps(raw))
-    null_dd_flights = deduped.filter(F.col("departure_delay").isNull())
-    missing = null_dd_flights.count()
-    if missing > 0:
-        print(f"Dropped {missing} flights with no departure_delay")
-        missing_flights = (null_dd_flights
-                           .select("fa_flight_id", "scheduled_out", "actual_out")
-                           .limit(20)
-                           .collect())
-        for flight in missing_flights:
-            flight_id = flight["fa_flight_id"]
-            so = flight["scheduled_out"]
-            ao = flight["actual_out"]
-            print(f"Missing departure_delay from flight {flight_id} "
-                  f"with scheduled_out {so}, actual_out {ao}.")
-
             
     # Only overwrite dt folders currently being written
     spark.conf.set("spark.sql.sources.partitionOverwriteMode", "dynamic")
@@ -177,7 +185,12 @@ def main():
     raw = (spark.read.schema(RAW_SCHEMA).json(src)
            .withColumn("dt", F.regexp_extract(F.input_file_name(), 
             r"departures_(\d{4}-\d{2}-\d{2})", 1))
-           .filter(F.col("dt").between(start_date, end_date)))
+           .filter(F.col("dt").between(start_date, end_date))
+           .cache())
+
+    # Logging if any flights were dropped
+    log_dropped_flights(raw)
+    
     clean = clean_flights(raw).cache()
 
     record_count = clean.count()
