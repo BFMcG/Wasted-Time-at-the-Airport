@@ -9,8 +9,6 @@ from athena_exporter import AthenaExporter
 S3_PREFIX = "data/web"
 AIRPORT = "KSAN"
 
-
-
 VIEWS = [
     "web_avg_delay_al_month",
     "web_avg_delay_al_today",
@@ -25,7 +23,8 @@ VIEWS = [
 
 def handler(event, context):
     '''
-    Lambda handler that saves Athena queries in gold bucket.
+    Lambda handler that saves Athena queries in gold bucket 
+    as JSON files.
     '''
 
     zone = ZoneInfo("America/Los_Angeles")

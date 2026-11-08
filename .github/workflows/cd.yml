@@ -22,11 +22,17 @@ jobs:
         with:
           python-version: "3.14"
 
-      - name: Build Lambda package
+      - name: Build API Lambda package
         run: |
-          pip install requests -t package
-          cp main/api_handler.py main/flight_aware_api.py package/
-          cd package && zip -r ../function.zip .
+          pip install requests -t api_package
+          cp main/api_handler.py main/flight_aware_api.py api_package/
+          cd api_package && zip -r ../api_function.zip .
+
+      - name: Build export Lambda package
+        run: |
+          mkdir export_package
+          cp main/export_handler.py main/athena_exporter.py export_package/
+          cd export_package && zip -r ../export_function.zip .
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -34,12 +40,12 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Deploy to Lambda
+      - name: Deploy to ingestion Lambda
         run: |
           aws lambda update-function-code \
-            --function-name ${{ vars.LAMBDA_FUNC_NAME }} \
-            --zip-file fileb://function.zip
-          aws lambda wait function-updated --function-name ${{ vars.LAMBDA_FUNC_NAME }}
+            --function-name ${{ vars.LAMBDA_INGES_NAME }} \
+            --zip-file fileb://api_function.zip
+          aws lambda wait function-updated --function-name ${{ vars.LAMBDA_INGES_NAME }}
 
       - name: Deploy Glue script
         run: |
@@ -69,3 +75,10 @@ jobs:
               esac
             done
           done
+
+      - name: Deploy to export Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ vars.LAMBDA_EXP_NAME }} \
+            --zip-file fileb://export_function.zip
+          aws lambda wait function-updated --function-name ${{ vars.LAMBDA_EXP_NAME }}
