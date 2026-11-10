@@ -12,10 +12,9 @@ from pyspark.sql.types import (
 
 AIRPORT = "KSAN"
 RAW_PREFIX = "raw/flightaware"
-CLEAN_PREFIX = "clean/flightaware"
 PST = "America/Los_Angeles"
 
-TIMESTAMP_COLS = ["scheduled_out", "actual_out", "actual_off"]
+TIMESTAMP_COLS = ["scheduled_out", "scheduled_off", "actual_out", "actual_off"]
 
 
 RAW_SCHEMA = StructType([
@@ -27,6 +26,7 @@ RAW_SCHEMA = StructType([
         )),
     StructField("departure_delay", IntegerType()),
     StructField("scheduled_out", StringType()),
+    StructField("scheduled_off", StringType()),
     StructField("actual_out", StringType()),
     StructField("actual_off", StringType()),
     StructField("_ingested_at", StringType())
@@ -88,7 +88,6 @@ def add_runway_delay(df: DataFrame) -> DataFrame:
         F.when((seconds >= 0) & seconds.isNotNull(), seconds)
         )
 
-
 def pst_time(df: DataFrame) -> DataFrame:
     '''
     Change from UTC time to PST.
@@ -138,30 +137,70 @@ def clean_flights(df: DataFrame) -> DataFrame:
         "flight_number",
         F.col("destination.code_icao").alias("code_icao"),
         "scheduled_out",
+        "scheduled_off",
         "actual_out",
         "actual_off",
         "departure_delay",
         "runway_delay"
     )
 
-def add_date_parts(df: DataFrame) -> DataFrame:
+def date_types(df: DataFrame) -> DataFrame:
     '''
-    Splitting dt into year, month, and day inorder
-    for partitioning in the clean S3 bucket
+    Casting date columns to types for Iceberg table
     '''
-    return (
-        df.withColumn("year", F.substring("dt", 1, 4))
-        .withColumn("month", F.substring("dt", 6, 2))
-        .withColumn("day", F.substring("dt", 9, 2))
-    )
+    df = df.withColumn("dt", F.to_date("dt"))
+
+    for c in TIMESTAMP_COLS:
+        df = df.withColumn(c, F.col(c).cast("timestamp_ntz"))
+
+    return df
+
+class IcebergTable:
+    '''
+    Tells spark how to write a dataframe into
+    the iceberg table given the table and database from Athena.
+    '''
+
+    def __init__(self, database: str, table: str, file_dst: str):
+        self.database = database
+        self.table = table
+        self.file_dst = file_dst
+
+    def spark_settings(self) -> dict:
+        '''
+        Creating the spark setting to write the cleaned data
+        through the glue catalog. Returned as a dictionary for
+        easier testing and less Spark work.
+        '''
+        prefix = "spark.sql.catalog.glue_catalog"
+        return {
+            "spark.sql.extensions":
+            "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",
+            prefix:                   "org.apache.iceberg.spark.SparkCatalog",
+            f"{prefix}.catalog-impl": "org.apache.iceberg.aws.glue.GlueCatalog",
+            f"{prefix}.io-impl":      "org.apache.iceberg.aws.s3.S3FileIO",
+            f"{prefix}.warehouse":    self.file_dst
+        }
+
+    @property
+    def full_name(self) -> str:
+        return f"glue_catalog.{self.database}.{self.table}"
+
+    def overwrite_days(self, df: DataFrame) -> None:
+        '''
+        Overwrite partions that are currently being written.
+        '''
+        df.writeTo(self.full_name).overwritePartitions()
+
+
 
 def main():
     from awsglue.context import GlueContext
-    from awsglue.job import Job
     from awsglue.utils import getResolvedOptions
     from pyspark.context import SparkContext
+    from pyspark.conf import SparkConf
 
-    args = getResolvedOptions(sys.argv, ["JOB_NAME", "RAW_BUCKET", "CLEAN_BUCKET"])
+    args = getResolvedOptions(sys.argv, ["RAW_BUCKET", "CLEAN_BUCKET"])
 
     # Backfill option: --START_DATE / --END_DATE, default yesterday
     if "--START_DATE" in sys.argv:
@@ -170,17 +209,24 @@ def main():
     else:
         start_date = end_date = yesterday()
 
-    glue_context = GlueContext(SparkContext.getOrCreate())
+    # Setting up Athena parameters for IcebergTable 
+
+    dst = f"s3://{args['CLEAN_BUCKET']}/iceberg/"
+    src = f"s3://{args['RAW_BUCKET']}/{RAW_PREFIX}/airport={AIRPORT}/departures_*.jsonl.gz"
+    
+
+    silver = IcebergTable(
+        database="flights",
+        table="silver_flights",
+        file_dst=dst
+    )
+
+    # Configuring Spark settings
+    conf = SparkConf().setAll(silver.spark_settings().items())
+    sc = SparkContext.getOrCreate(conf=conf)
+    glue_context = GlueContext(sc)
     spark = glue_context.spark_session
     spark.conf.set("spark.sql.session.timeZone", "UTC")
-            
-    # Only overwrite dt folders currently being written
-    spark.conf.set("spark.sql.sources.partitionOverwriteMode", "dynamic")
-    job = Job(glue_context)
-    job.init(args["JOB_NAME"], args)
-
-    src = f"s3://{args['RAW_BUCKET']}/{RAW_PREFIX}/airport={AIRPORT}/departures_*.jsonl.gz"
-    dst = f"s3://{args['CLEAN_BUCKET']}/{CLEAN_PREFIX}/airport={AIRPORT}/"
 
     raw = (spark.read.schema(RAW_SCHEMA).json(src)
            .withColumn("dt", F.regexp_extract(F.input_file_name(), 
@@ -192,27 +238,18 @@ def main():
     log_dropped_flights(raw)
     
     clean = clean_flights(raw).cache()
-
     record_count = clean.count()
     if record_count == 0:
         raise RuntimeError(f"No clean flights produced from {src}")
 
 
-    # Writing parquet file by year, month, day
-    partition_cols = ["year", "month", "day"]
-
-    (add_date_parts(clean)
-        .repartition(*partition_cols)
-        .write.mode("overwrite")
-        .partitionBy(*partition_cols)
-        .parquet(dst))
+    # Chaning types, and writing new parquet files (overwriting if necessary)
+    silver.overwrite_days(date_types(clean))
 
     if "--START_DATE" in sys.argv:
         print(f"Wrote {record_count} flights for {start_date} -> {end_date} to {dst}")
     else:
         print(f"Wrote {record_count} flights to {dst}")
-
-    job.commit()
 
 
 if __name__ == "__main__":

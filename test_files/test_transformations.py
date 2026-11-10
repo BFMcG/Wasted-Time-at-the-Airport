@@ -19,7 +19,7 @@ def test_parse_timestamps(spark):
     Using mock dataframe to test if strings for timestamp columns
     are converted correctly.
     '''
-    cols = ["scheduled_out", "actual_out", "actual_off", "_ingested_at"]
+    cols = ["scheduled_out", "scheduled_off", "actual_out", "actual_off", "_ingested_at"]
 
     schema = StructType(
         [StructField("fa_flight_id", StringType())]
@@ -28,12 +28,14 @@ def test_parse_timestamps(spark):
 
     # using actual_off as null check
     df = spark.createDataFrame(
-        [("FLT1", "2026-01-01T07:00:00Z", "2026-01-01T07:10:00Z", None,
+        [("FLT1", "2026-01-01T07:00:00Z", "2026-01-01T07:10:00Z", "2026-01-01T07:10:00Z", None,
           "2026-01-02T07:01:00.12345+00:00")],
         schema
     )
 
     mock_df = transformations.parse_timestamps(df)
+
+    assert mock_df.first()["actual_off"] is None
 
     types = {field.name: field.dataType for field in mock_df.schema.fields}
     for c in cols:
@@ -134,8 +136,7 @@ def test_split_ident(spark):
 def test_add_runway_delay(spark):
     '''
     Using mock dataframe to test if runway delay is the seconds between
-    actual_out and actual_off, formatted HH:MM:SS, and negative or
-    missing times become null.
+    actual_out and actual_off. Negative or missing times become null.
     '''
     leave_gate = datetime(2026, 1, 1, 14, 0, 0, tzinfo=UTC)
 
@@ -176,7 +177,7 @@ def test_pst_time(spark):
     Pacific time, including when the time changes in the winter.
     '''
 
-    cols = ["scheduled_out", "actual_out", "actual_off"]
+    cols = ["scheduled_out", "scheduled_off", "actual_out", "actual_off"]
 
     cases = [
         ("FLT1", datetime(2026, 7, 1, 14, 0, tzinfo=UTC)),  # summer
@@ -214,21 +215,22 @@ def test_log_dropped_flights(spark, capsys):
     Using mock dataframe to test if missing departure_delay
     rows are dropped.
     '''
-    sch_out, act_out, act_off = (
-        "2026-10-23T07:00:00Z", "2026-10-23T07:05:00Z", "2026-10-23T07:15:00Z"
+    sch_out, sch_off, act_out, act_off = (
+        "2026-10-23T07:00:00Z", "2026-10-23T07:10:00Z", 
+        "2026-10-23T07:05:00Z", "2026-10-23T07:15:00Z"
     )
     old, new = "2026-10-24T07:00:00Z", "2026-10-24T08:00:00Z"
 
     cols = ["dt", "fa_flight_id", "departure_delay", "scheduled_out",
-            "actual_out", "actual_off", "_ingested_at"]
+            "scheduled_off", "actual_out", "actual_off", "_ingested_at"]
 
     df = spark.createDataFrame(
             [
-                ("2026-10-23", "FLT1", 120, sch_out, act_out, act_off, old),   # older duplicate -> dropped
-                ("2026-10-23", None, 330, sch_out, act_out, act_off, new),     # null id -> dropped
-                ("2026-10-23", "FLT1", 450, sch_out, act_out, act_off, new),   # newer duplicate -> kept
-                ("2026-10-23", "FLT2", None, sch_out, act_out, act_off, new),  # missing delay -> reported
-                ("2026-10-23", "FLT3", 0, sch_out, act_out, act_off, new),     # on time -> kept
+                ("2026-10-23", "FLT1", 120, sch_out, sch_off, act_out, act_off, old),   # older duplicate -> dropped
+                ("2026-10-23", None, 330, sch_out, sch_off, act_out, act_off, new),     # null id -> dropped
+                ("2026-10-23", "FLT1", 450, sch_out, sch_off, act_out, act_off, new),   # newer duplicate -> kept
+                ("2026-10-23", "FLT2", None, sch_out, sch_off, act_out, act_off, new),  # missing delay -> reported
+                ("2026-10-23", "FLT3", 0, sch_out, sch_off, act_out, act_off, new),     # on time -> kept
             ],
             cols
         )
@@ -241,7 +243,7 @@ def test_log_dropped_flights(spark, capsys):
     output = capsys.readouterr().out
     assert "Dropped 2 flight(s) that were duplicates or null fa_flight_id." in output
     assert "Dropped 1 flight(s) with no departure_delay." in output
-    assert f"Missing departure_delay from flight FLT2 " in output
+    assert "Missing departure_delay from flight FLT2 " in output
     assert "FLT3" not in output
 
 def test_clean_flights(spark):
@@ -249,32 +251,21 @@ def test_clean_flights(spark):
     Using a mock raw dataframe of two flights (one late, one early)
     to test if clean_flights returns the expected columns and values.
     '''
-    # Raw input matches what main() passes in: RAW_SCHEMA plus dt from the file name
-    schema = StructType([
-        StructField("dt", StringType()),
-        StructField("fa_flight_id", StringType()),
-        StructField("ident_icao", StringType()),
-        StructField("destination", StructType(
-            [StructField("code_icao", StringType())]
-            )),
-        StructField("departure_delay", IntegerType()),
-        StructField("scheduled_out", StringType()),
-        StructField("actual_out", StringType()),
-        StructField("actual_off", StringType()),
-        StructField("_ingested_at", StringType())
-    ])
+    schema = transformations.RAW_SCHEMA
 
     df = spark.createDataFrame(
         [
             # Late: 5 min departure delay, 12:32 runway delay
             ("2026-07-01", "FLT1", "SWA1234", ("KLAX",), 300,
-             "2026-07-01T14:00:00Z", 
+             "2026-07-01T14:00:00Z",
+             "2026-07-01T14:10:00Z",
              "2026-07-01T14:05:00Z", 
              "2026-07-01T14:17:32Z",
              "2026-07-02T07:01:00+00:00"),
             # Early: left the gate 10 secs early, 20:10 runway delay
             ("2026-07-01", "FLT2", "UAL567", ("KSFO",), -10,
-             "2026-07-01T16:00:00Z", 
+             "2026-07-01T16:00:00Z",
+             "2026-07-01T16:10:00Z", 
              "2026-07-01T15:59:50Z", 
              "2026-07-01T16:20:00Z",
              "2026-07-02T07:01:00+00:00")
@@ -286,8 +277,8 @@ def test_clean_flights(spark):
 
     assert mock_df.columns == [
         "dt", "fa_flight_id", "airline_code", "flight_number", 
-        "code_icao", "scheduled_out", "actual_out", "actual_off",
-        "departure_delay", "runway_delay"
+        "code_icao", "scheduled_out", "scheduled_off", "actual_out", 
+        "actual_off", "departure_delay", "runway_delay"
     ]
 
     # Formatting UTC in Spark
@@ -301,28 +292,57 @@ def test_clean_flights(spark):
     )
     assert rows == [
         ("2026-07-01", "FLT1", "SWA", "1234", "KLAX",
-         "2026-07-01 07:00:00", "2026-07-01 07:05:00", "2026-07-01 07:17:32",
+         "2026-07-01 07:00:00", "2026-07-01 07:10:00", 
+         "2026-07-01 07:05:00", "2026-07-01 07:17:32",
          300, 752),
         ("2026-07-01", "FLT2", "UAL", "567", "KSFO",
-         "2026-07-01 09:00:00", "2026-07-01 08:59:50", "2026-07-01 09:20:00",
+         "2026-07-01 09:00:00", "2026-07-01 09:10:00",
+         "2026-07-01 08:59:50", "2026-07-01 09:20:00",
          -10, 1210),
     ]
 
-def test_add_date_parts(spark):
+def test_date_types(spark):
+    '''
+    Using mock df to test if columns are
+    casted properly.
+    '''
+    cols = ["dt", "scheduled_out", "actual_out",
+            "scheduled_off", "actual_off"]
+
     df = spark.createDataFrame(
         [
-            ("2026-01-01",), 
-            ("2026-12-31",)
+            ("2026-01-01", 
+             "2026-01-01 07:00:00", "2026-01-01 07:10:00", 
+             "2026-01-01 07:05:00", "2026-01-01 07:17:32")
         ],
-        ["dt"]
+        cols
     )
 
-    mock_df = transformations.add_date_parts(df)
+    # Running through the functions seen before date_types()
+    mock_df = transformations.parse_timestamps(df)
+    mock_df = transformations.pst_time(mock_df)
 
-    rows = [tuple(r) for r in mock_df.select("year", "month", "day").collect()]
+    mock_df = transformations.date_types(mock_df)
+    mock_types = dict(mock_df.dtypes)
 
-    assert rows== [
-        ("2026", "01", "01"),
-        ("2026", "12", "31"),
-    ]
+    assert mock_types["dt"] == "date"
 
+    for c in cols[1:]:
+        assert mock_types[c] == "timestamp_ntz"
+
+def test_icebergtable():
+    '''
+    Testing the settings set up and the
+    full_name function within the icebergtable class.
+    '''
+    table = transformations.IcebergTable(
+        database="test_db",
+        table="test_table",
+        file_dst="s3://test_bucket/iceberg/"
+    )
+
+    settings = table.spark_settings()
+
+    assert settings["spark.sql.catalog.glue_catalog"] == "org.apache.iceberg.spark.SparkCatalog"
+    assert settings["spark.sql.catalog.glue_catalog.warehouse"] == "s3://test_bucket/iceberg/"
+    assert table.full_name == "glue_catalog.test_db.test_table"
