@@ -5,7 +5,7 @@ SELECT airline_name,
     AS DOUBLE) / COUNT(total_delay_secs), 2) as pct_of_flights_delayed,
     COUNT(total_delay_secs) as num_flights
 FROM flights.airlines_tracked
-WHERE year = year(date(current_timestamp AT TIME ZONE 'America/Los_Angeles') - interval '1' day)
-AND month = month(date(current_timestamp AT TIME ZONE 'America/Los_Angeles') - interval '1' day)
+WHERE dt >= date_trunc('month', 
+    date(current_timestamp AT TIME ZONE 'America/Los_Angeles') - interval '1' day)
 GROUP BY airline_name
 ORDER BY pct_of_flights_delayed DESC

@@ -8,9 +8,7 @@ with filtered_tds as (
             ELSE total_delay_secs END)) as INT) as average_delay_secs,
         COUNT(total_delay_secs) as num_flights
     FROM flights.airlines_tracked
-    WHERE year = year(date(current_timestamp AT TIME ZONE 'America/Los_Angeles') - interval '1' day)
-    AND month = month(date(current_timestamp AT TIME ZONE 'America/Los_Angeles') - interval '1' day)
-    AND day = day(date(current_timestamp AT TIME ZONE 'America/Los_Angeles') - interval '1' day)
+    WHERE dt = date(current_timestamp AT TIME ZONE 'America/Los_Angeles') - interval '1' day
     -- delays over 10 hours are excluded,
     -- no inflated average for outliers
     AND total_delay_secs < 36000
