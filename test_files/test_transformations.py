@@ -307,13 +307,14 @@ def test_date_types(spark):
     casted properly.
     '''
     cols = ["dt", "scheduled_out", "actual_out",
-            "scheduled_off", "actual_off"]
+            "scheduled_off", "actual_off", "_ingested_at"]
 
     df = spark.createDataFrame(
         [
             ("2026-01-01", 
              "2026-01-01 07:00:00", "2026-01-01 07:10:00", 
-             "2026-01-01 07:05:00", "2026-01-01 07:17:32")
+             "2026-01-01 07:05:00", "2026-01-01 07:17:32",
+             "2026-01-02 07:01:00")
         ],
         cols
     )
@@ -327,7 +328,7 @@ def test_date_types(spark):
 
     assert mock_types["dt"] == "date"
 
-    for c in cols[1:]:
+    for c in cols[1:4]:
         assert mock_types[c] == "timestamp_ntz"
 
 def test_icebergtable():

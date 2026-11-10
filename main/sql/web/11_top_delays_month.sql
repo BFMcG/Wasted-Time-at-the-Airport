@@ -1,5 +1,5 @@
 CREATE OR REPLACE VIEW flights.web_top_delays_month as
-SELECT CAST(dt as INT) as dt, airline_code, flight_number, airline_name,
+SELECT CAST(dt as VARCHAR(10)) as dt, airline_code, flight_number, airline_name,
     CAST(total_delay_secs / 3600 as INT) as delay_hours,
     CAST(total_delay_secs % 3600 / 60 as INT) as delay_minutes,
     total_delay_secs
