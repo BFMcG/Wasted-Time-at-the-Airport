@@ -1,10 +1,12 @@
 import pytest
 from pathlib import Path
+from datetime import datetime, timedelta
 from pyspark.sql.types import (
     IntegerType,
     StringType,
     StructField,
     StructType,
+    TimestampType
 )
 
 ###########################################################
@@ -18,15 +20,22 @@ from pyspark.sql.types import (
 
 
 
-SCHEMA = StructType([
+CORE_SCHEMA = StructType([
     StructField("dt", StringType()),
-    StructField("year", IntegerType()),
-    StructField("month", IntegerType()),
-    StructField("day", IntegerType()),
     StructField("airline_code", StringType()),
     StructField("flight_number", StringType()),
     StructField("departure_delay", IntegerType()),
-    StructField("runway_delay", IntegerType())
+    StructField("runway_delay", IntegerType()),
+    StructField("scheduled_off", TimestampType()),
+    StructField("actual_off", TimestampType())
+])
+
+WEB_SCHEMA = StructType([
+    StructField("dt", StringType()),
+    StructField("airline_code", StringType()),
+    StructField("airline_name", StringType()),
+    StructField("flight_number", StringType()),
+    StructField("total_delay_secs", IntegerType())
 ])
 
 # So pytest will run properly from inside test_files/
@@ -40,34 +49,48 @@ def run_view(spark, sql_file):
     sql = sql.replace("CREATE OR REPLACE VIEW", "CREATE OR REPLACE TEMP VIEW")
     sql = sql.replace("flights.", "")
     sql = sql.replace("date(current_timestamp AT TIME ZONE 'America/Los_Angeles')", f"DATE '{TEST_DATE}'")
+    sql = sql.replace("date_diff('second',", "date_diff(second,")
     spark.sql(sql)
 
 @pytest.fixture()
-def mock_airlines(spark):
+def mock_core_airlines(spark):
+    scheduled_off = datetime(2026, 1, 2, 8, 0)
+    ontime_off = scheduled_off + timedelta(minutes=20)
+    early_off = scheduled_off + timedelta(minutes=10)
+    # 30 minute delay sitting on the runway
+    late_off = scheduled_off + timedelta(minutes=50)
+
     df = spark.createDataFrame(
         [
-            # Normal delay: runway_delay <= 1800
-            ("2026-01-02", 2026, 1, 2, "UAL", "1234", 3661, 600),
-            # Long runway: runway_delay > 1800
-            ("2026-01-02", 2026, 1, 2, "UAL", "567", 300, 2400),
-            # Zero delay
-            ("2026-01-02", 2026, 1, 2, "DAL", "890", 0, 0),
-            # Large delay
-            ("2026-01-02", 2026, 1, 2, "SWA", "321", 64000, 600),
-            # Flight from the previous day
-            ("2026-01-01", 2026, 1, 1, "SWA", "654", 120, 600),
-            # Flight from only different year
-            ("2025-01-02", 2025, 1, 2, "DAL", "000", 392033, 600),
-            # Flight from different year/month/day
-            ("2025-12-31", 2025, 12, 31, "UAL", "111", 1200, 100),
+            # Short runway: runway_delay <= 1200
+            ("2026-01-02", "UAL", "1234", 600, 600,
+             scheduled_off, early_off),
+            # Long runway: runway_delay > 1200
+            ("2026-01-02", "UAL", "567", 600, 2400,
+             scheduled_off, late_off),
+            # Short departure: departure_delay <= 600
+            ("2026-01-02", "SWA", "321", 120, 1200,
+             scheduled_off, late_off),
+            # Long departure: departure_delay > 600
+            ("2026-01-02", "SWA", "321", 1200, 1200,
+             scheduled_off, late_off),
+            # Zero departure delay
+            ("2026-01-02", "DAL", "890", 0, 1200,
+             scheduled_off, ontime_off),
+            # Null runway_delay actual - scheduled <= 20
+            ("2026-01-02", "DAL", "3333", 600, None,
+             scheduled_off, ontime_off),
+            # Null runway_delay actual - schecduled > 20
+            ("2026-01-02", "DAL", "3333", 600, None,
+             scheduled_off, late_off),
             # Negative delay: flight left early
-            ("2026-01-02", 2026, 1, 2, "SWA", "222", -120, 100),
-            # Null runway_delay
-            ("2026-01-02", 2026, 1, 2, "DAL", "3333", 1200, None),
+            ("2026-01-02", "SWA", "222", -120, 1200,
+             scheduled_off, ontime_off),
             # Unwanted airline
-            ("2026-01-02", 2026, 1, 2, "XYZ", "4444", 500, 100)
+            ("2026-01-02", "XYZ", "4444", 600, 1200,
+             scheduled_off, ontime_off)
         ],
-        SCHEMA 
+        CORE_SCHEMA 
     )
 
     df.createOrReplaceTempView("silver_flights")
@@ -75,7 +98,33 @@ def mock_airlines(spark):
     run_view(spark, "core/01_airlines_tracked.sql")
     return df
 
-@pytest.mark.usefixtures("mock_airlines")
+@pytest.fixture()
+def mock_web_airlines(spark):
+
+    df = spark.createDataFrame(
+        [
+            # Zero Delay
+            ("2026-01-02", "UAL", "United", "1234", 0),
+            # Large Delay
+            ("2026-01-02", "UAL", "United", "567", 14461),
+            # Short Delay
+            ("2026-01-02", "SWA", "Southwest", "321", 300),
+            # Medium Delay
+            ("2026-01-02", "DAL", "Delta", "456", 3661),
+            # Flight from the previous day
+            ("2026-01-01", "SWA", "Southwest", "654", 7261),
+            # Flight from only different year
+            ("2025-01-02", "DAL", "Delta", "000", 25000),
+            # Flight from different year/month/day
+            ("2025-12-31", "UAL", "United", "111", 50000),
+        ],
+        WEB_SCHEMA 
+    )
+
+    df.createOrReplaceTempView("airlines_tracked")
+    return df
+
+@pytest.mark.usefixtures("mock_core_airlines")
 def test_airlines_tracked(spark):
     df = spark.sql(
         '''
@@ -90,20 +139,19 @@ def test_airlines_tracked(spark):
     )
 
     expected = sorted([
-        ("DAL", "000", "Delta", 392033),
-        ("SWA", "321", "Southwest", 64000),
-        ("UAL", "1234", "United", 3661),
-        ("DAL", "3333", "Delta", 1200),
-        ("UAL", "111", "United", 1200),
-        ("UAL", "567", "United", 900),
-        ("SWA", "654", "Southwest", 120),
+        ("UAL", "1234", "United", 0),
+        ("UAL", "567", "United", 1200),
+        ("SWA", "321", "Southwest", 0),
+        ("SWA", "321", "Southwest", 600),
         ("DAL", "890", "Delta", 0),
-        ("SWA", "222", "Southwest", -120)
+        ("DAL", "3333", "Delta", 0),
+        ("DAL", "3333", "Delta", 1200),
+        ("SWA", "222", "Southwest", 0)
     ])
 
     assert rows == expected
 
-@pytest.mark.usefixtures("mock_airlines")
+@pytest.mark.usefixtures("mock_web_airlines")
 def test_top_delays_today(spark):
     run_view(spark, "web/10_top_delays_today.sql")
 
@@ -120,17 +168,15 @@ def test_top_delays_today(spark):
     )
 
     expected = sorted([
-        ("SWA", "321", "Southwest", 17, 46, 64000),
-        ("UAL", "1234", "United", 1, 1, 3661),
-        ("DAL", "3333", "Delta", 0, 20, 1200),
-        ("UAL", "567", "United", 0, 15, 900),
-        ("DAL", "890", "Delta", 0, 0, 0),
-        ("SWA", "222", "Southwest", 0, -2, -120)
+        ("UAL", "567", "United", 4, 1, 14461),
+        ("DAL", "456", "Delta", 1, 1, 3661),
+        ("SWA", "321", "Southwest", 0, 5, 300),
+        ("UAL", "1234", "United", 0, 0, 0)
     ])
 
     assert rows == expected
 
-@pytest.mark.usefixtures("mock_airlines")
+@pytest.mark.usefixtures("mock_web_airlines")
 def test_top_delays_month(spark):
     run_view(spark, "web/11_top_delays_month.sql")
 
@@ -147,18 +193,16 @@ def test_top_delays_month(spark):
     )
 
     expected = sorted([
-        ("2026-01-02", "SWA", "321", "Southwest", 17, 46, 64000),
-        ("2026-01-02", "UAL", "1234", "United", 1, 1, 3661),
-        ("2026-01-02", "DAL", "3333", "Delta", 0, 20, 1200),
-        ("2026-01-02", "UAL", "567", "United", 0, 15, 900),
-        ("2026-01-01", "SWA", "654", "Southwest", 0, 2, 120),
-        ("2026-01-02", "DAL", "890", "Delta", 0, 0, 0),
-        ("2026-01-02", "SWA", "222", "Southwest", 0, -2, -120)
+        ("2026-01-02", "UAL", "567", "United", 4, 1, 14461),
+        ("2026-01-01", "SWA", "654", "Southwest", 2, 1, 7261),
+        ("2026-01-02", "DAL", "456", "Delta", 1, 1, 3661),
+        ("2026-01-02", "SWA", "321", "Southwest", 0, 5, 300),
+        ("2026-01-02", "UAL", "1234", "United", 0, 0, 0)
     ])
 
     assert rows == expected
 
-@pytest.mark.usefixtures("mock_airlines")
+@pytest.mark.usefixtures("mock_web_airlines")
 def test_avg_delay_al_today(spark):
     run_view(spark, "web/12_avg_delay_al_today.sql")
 
@@ -175,14 +219,14 @@ def test_avg_delay_al_today(spark):
     )
 
     expected = sorted([
-        ("United", 2, 0, 38, 1),
-        ("Delta", 2, 0, 10, 0),
-        ("Southwest", 1, 0, 0, 0)
+        ("United", 2, 2, 0, 31),
+        ("Delta", 1, 1, 1, 1),
+        ("Southwest", 1, 0, 5, 0)
     ])
 
     assert rows == expected
 
-@pytest.mark.usefixtures("mock_airlines")
+@pytest.mark.usefixtures("mock_web_airlines")
 def test_avg_delay_al_month(spark):
     run_view(spark, "web/13_avg_delay_al_month.sql")
 
@@ -199,14 +243,14 @@ def test_avg_delay_al_month(spark):
     )
 
     expected = sorted([
-        ("United", 2, 0, 38, 1),
-        ("Delta", 2, 0, 10, 0),
-        ("Southwest", 2, 0, 1, 0)
+        ("United", 2, 2, 0, 31),
+        ("Southwest", 2, 1, 3, 1),
+        ("Delta", 1, 1, 1, 1)
     ])
 
     assert rows == expected
 
-@pytest.mark.usefixtures("mock_airlines")
+@pytest.mark.usefixtures("mock_web_airlines")
 def test_pct_delay_today(spark):
     run_view(spark, "web/14_pct_delays_today.sql")
 
@@ -223,14 +267,14 @@ def test_pct_delay_today(spark):
     )
 
     expected = sorted([
-        ("United", 100.00, 2),
-        ("Southwest", 50.00, 2),
-        ("Delta", 50.00, 2)
+        ("Delta", 100.0, 1),
+        ("United", 50.0, 2),
+        ("Southwest", 0.0, 1)
     ])
 
     assert rows == expected
 
-@pytest.mark.usefixtures("mock_airlines")
+@pytest.mark.usefixtures("mock_web_airlines")
 def test_pct_delay_month(spark):
     run_view(spark, "web/15_pct_delays_month.sql")
 
@@ -247,14 +291,14 @@ def test_pct_delay_month(spark):
     )
 
     expected = sorted([
-        ("United", 100.00, 2),
-        ("Delta", 50.00, 2),
-        ("Southwest", 33.33, 3)
+        ("Delta", 100.0, 1),
+        ("United", 50.0, 2),
+        ("Southwest", 50.0, 2)
     ])
 
     assert rows == expected
 
-@pytest.mark.usefixtures("mock_airlines")
+@pytest.mark.usefixtures("mock_web_airlines")
 def test_total_delay_today(spark):
     run_view(spark, "web/16_total_delay_today.sql")
 
@@ -268,11 +312,11 @@ def test_total_delay_today(spark):
 
     rows = tuple(df[0])
 
-    expected = (6, 19, 22, 41)
+    expected = (4, 5, 7, 2)
 
     assert rows == expected
 
-@pytest.mark.usefixtures("mock_airlines")
+@pytest.mark.usefixtures("mock_web_airlines")
 def test_total_delay_month(spark):
     run_view(spark, "web/17_total_delay_month.sql")
 
@@ -286,6 +330,6 @@ def test_total_delay_month(spark):
 
     rows = tuple(df[0])
 
-    expected = (7, 19, 24, 41)
+    expected = (5, 7, 8, 3)
 
     assert rows == expected
