@@ -1,4 +1,4 @@
-CREATE OR REPLACE VIEW flights.web_top_delays_today as
+CREATE OR REPLACE VIEW flights.web_top_delays_yesterday as
 SELECT airline_code, flight_number, airline_name,
     CAST(total_delay_secs / 3600 as INT) as delay_hours,
     CAST(total_delay_secs % 3600 / 60 as INT) as delay_minutes,

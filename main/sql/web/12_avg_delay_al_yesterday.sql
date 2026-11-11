@@ -1,4 +1,4 @@
-CREATE OR REPLACE VIEW flights.web_avg_delay_al_today as
+CREATE OR REPLACE VIEW flights.web_avg_delay_al_yesterday as
 with filtered_tds as (
     SELECT airline_name,
     -- negative delay is treated as 0/on-time,

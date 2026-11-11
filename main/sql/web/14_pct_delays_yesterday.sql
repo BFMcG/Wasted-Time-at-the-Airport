@@ -1,4 +1,4 @@
-CREATE OR REPLACE VIEW flights.web_pct_delays_today as
+CREATE OR REPLACE VIEW flights.web_pct_delays_yesterday as
 SELECT airline_name,
     ROUND(100.0 * CAST(
     SUM(CASE WHEN total_delay_secs >= 900 THEN 1 ELSE 0 END)

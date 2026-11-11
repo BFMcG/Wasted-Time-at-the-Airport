@@ -107,6 +107,8 @@ def mock_web_airlines(spark):
             ("2026-01-02", "UAL", "United", "1234", 0),
             # Large Delay
             ("2026-01-02", "UAL", "United", "567", 14461),
+            # Over 24 hour delay
+            ("2026-01-02", "UAL", "United", "999", 90061),
             # Short Delay
             ("2026-01-02", "SWA", "Southwest", "321", 300),
             # Medium Delay
@@ -152,14 +154,14 @@ def test_airlines_tracked(spark):
     assert rows == expected
 
 @pytest.mark.usefixtures("mock_web_airlines")
-def test_top_delays_today(spark):
-    run_view(spark, "web/10_top_delays_today.sql")
+def test_top_delays_yesterday(spark):
+    run_view(spark, "web/10_top_delays_yesterday.sql")
 
     df = spark.sql(
         '''
         SELECT airline_code, flight_number, airline_name,
         delay_hours, delay_minutes, total_delay_secs
-        FROM web_top_delays_today
+        FROM web_top_delays_yesterday
         '''
     ).collect()
 
@@ -168,6 +170,7 @@ def test_top_delays_today(spark):
     )
 
     expected = sorted([
+        ("UAL", "999", "United", 25, 1, 90061),
         ("UAL", "567", "United", 4, 1, 14461),
         ("DAL", "456", "Delta", 1, 1, 3661),
         ("SWA", "321", "Southwest", 0, 5, 300),
@@ -193,6 +196,7 @@ def test_top_delays_month(spark):
     )
 
     expected = sorted([
+        ("2026-01-02", "UAL", "999", "United", 25, 1, 90061),
         ("2026-01-02", "UAL", "567", "United", 4, 1, 14461),
         ("2026-01-01", "SWA", "654", "Southwest", 2, 1, 7261),
         ("2026-01-02", "DAL", "456", "Delta", 1, 1, 3661),
@@ -203,14 +207,14 @@ def test_top_delays_month(spark):
     assert rows == expected
 
 @pytest.mark.usefixtures("mock_web_airlines")
-def test_avg_delay_al_today(spark):
-    run_view(spark, "web/12_avg_delay_al_today.sql")
+def test_avg_delay_al_yesterday(spark):
+    run_view(spark, "web/12_avg_delay_al_yesterday.sql")
 
     df = spark.sql(
         '''
         SELECT airline_name, num_flights, avg_delay_hours,
         avg_delay_minutes, avg_delay_secs
-        FROM web_avg_delay_al_today
+        FROM web_avg_delay_al_yesterday
         '''
     ).collect()
 
@@ -251,14 +255,14 @@ def test_avg_delay_al_month(spark):
     assert rows == expected
 
 @pytest.mark.usefixtures("mock_web_airlines")
-def test_pct_delay_today(spark):
-    run_view(spark, "web/14_pct_delays_today.sql")
+def test_pct_delay_yesterday(spark):
+    run_view(spark, "web/14_pct_delays_yesterday.sql")
 
     df = spark.sql(
         '''
         SELECT airline_name, 
         pct_of_flights_delayed, num_flights
-        FROM web_pct_delays_today
+        FROM web_pct_delays_yesterday
         '''
     ).collect()
 
@@ -268,7 +272,7 @@ def test_pct_delay_today(spark):
 
     expected = sorted([
         ("Delta", 100.0, 1),
-        ("United", 50.0, 2),
+        ("United", 66.67, 3),
         ("Southwest", 0.0, 1)
     ])
 
@@ -292,27 +296,28 @@ def test_pct_delay_month(spark):
 
     expected = sorted([
         ("Delta", 100.0, 1),
-        ("United", 50.0, 2),
+        ("United", 66.67, 3),
         ("Southwest", 50.0, 2)
     ])
 
     assert rows == expected
 
 @pytest.mark.usefixtures("mock_web_airlines")
-def test_total_delay_today(spark):
-    run_view(spark, "web/16_total_delay_today.sql")
+def test_total_delay_yesterday(spark):
+    run_view(spark, "web/16_total_delay_yesterday.sql")
 
     df = spark.sql(
         '''
-        SELECT flights_today, hours_wasted,
+        SELECT delayed_flights_yesterday, 
+        days_wasted, hours_wasted,
         minutes_wasted, secs_wasted
-        FROM web_total_delay_today
+        FROM web_total_delay_yesterday
         '''
     ).collect()
 
     rows = tuple(df[0])
 
-    expected = (4, 5, 7, 2)
+    expected = (4, 1, 6, 8, 3)
 
     assert rows == expected
 
@@ -322,7 +327,8 @@ def test_total_delay_month(spark):
 
     df = spark.sql(
         '''
-        SELECT flights_this_month, hours_wasted,
+        SELECT delayed_flights_month, 
+        days_wasted, hours_wasted,
         minutes_wasted, secs_wasted
         FROM web_total_delay_month
         '''
@@ -330,6 +336,6 @@ def test_total_delay_month(spark):
 
     rows = tuple(df[0])
 
-    expected = (5, 7, 8, 3)
+    expected = (5, 1, 8, 9, 4)
 
     assert rows == expected
