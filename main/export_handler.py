@@ -11,13 +11,13 @@ AIRPORT = "KSAN"
 
 VIEWS = [
     "web_avg_delay_al_month",
-    "web_avg_delay_al_today",
+    "web_avg_delay_al_yesterday",
     "web_pct_delays_month",
-    "web_pct_delays_today",
+    "web_pct_delays_yesterday",
     "web_top_delays_month",
-    "web_top_delays_today",
+    "web_top_delays_yesterday",
     "web_total_delay_month",
-    "web_total_delay_today"
+    "web_total_delay_yesterday"
 ]
 
 

@@ -167,7 +167,7 @@ def test_fetch_views(mock_exporter, mock_fetch):
     Testing the fetch views come out as expected
     '''
     views = ["web_avg_delay_al_month",
-            "web_avg_delay_al_today"]
+            "web_avg_delay_al_yesterday"]
 
     mock_exporter.start_query = mock_fetch.start_query
     mock_exporter.wait_for_query = mock_fetch.wait_for_query
@@ -175,6 +175,6 @@ def test_fetch_views(mock_exporter, mock_fetch):
 
     assert mock_exporter.fetch_views(views) == {
         "avg_delay_al_month": [{'airline_name': 'United', 'num_flights': 2}],
-        "avg_delay_al_today": [{'airline_name': 'Delta', 'num_flights': None}]
+        "avg_delay_al_yesterday": [{'airline_name': 'Delta', 'num_flights': None}]
         }
             

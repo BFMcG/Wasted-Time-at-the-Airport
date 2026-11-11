@@ -18,10 +18,10 @@ def env(monkeypatch):
 @pytest.fixture
 def mock_views():
     return {
-        "avg_delay_al_today": [
+        "avg_delay_al_yesterday": [
             {"airline_name": "Southwest", "num_flights": 2, "avg_delay_min": 30}
         ],
-        "pct_delays_today": [
+        "pct_delays_yesterday": [
             {"airline_name": "Southwest", "num_flights": 2, "pct_delay": 50.0}
         ]
     }
