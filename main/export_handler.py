@@ -5,6 +5,7 @@ import os
 import json
 
 from athena_exporter import AthenaExporter
+import pages
 
 S3_PREFIX = "data/web"
 AIRPORT = "KSAN"
@@ -59,6 +60,8 @@ def handler(event, context):
         "generated_at": datetime.now(UTC).isoformat()
     }
 
+
+    # JSON file
     key = f"{S3_PREFIX}/airport={AIRPORT}/{data_date}.json"
 
     s3.put_object(
@@ -69,7 +72,21 @@ def handler(event, context):
         )
 
     print(f"Wrote {len(VIEWS)} views to s3://{bucket}/{key}")
-     
+
+
+    # Webpage files
+    rendered_pages = pages.SITE.render_all(document)
+
+    for page_key, html in rendered_pages.items():
+        s3.put_object(
+            Bucket=bucket,
+            Key=page_key,
+            Body=html,
+            ContentType="text/html; charset=utf-8",
+            CacheControl="max-age=300"
+        )
+        print(f"Wrote page to s3://{bucket}/{page_key}")
+    
     return {
         "statusCode": 200,
         "bucket": bucket,
