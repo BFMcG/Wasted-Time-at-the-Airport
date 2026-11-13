@@ -38,7 +38,7 @@ def freeze_time():
 @pytest.fixture
 def mock_exporter():
     '''
-    Replaces AthenaExporter
+    Replaces AthenaExporter.
     '''
     with patch("export_handler.AthenaExporter") as fake_class:
         yield fake_class
@@ -46,14 +46,34 @@ def mock_exporter():
 @pytest.fixture
 def mock_s3():
     '''
-    Replaces boto3.client, s3 and Athena get a fake
+    Replaces boto3.client, s3 and Athena get a fake.
     '''
     fake_s3, fake_athena = MagicMock(), MagicMock()
     clients = {"s3": fake_s3, "athena": fake_athena}
     with patch("export_handler.boto3.client", side_effect=lambda service: clients[service]):
         yield fake_s3
 
-    
+@pytest.fixture
+def mock_render_all(mock_rendered_pages):
+    '''
+    Replacing render_all.
+    '''
+    with patch("export_handler.pages.SITE.render_all") as fake_render:
+        fake_render.return_value = mock_rendered_pages
+        yield fake_render
+
+@pytest.fixture
+def mock_rendered_pages():
+    '''
+    Replacing rendered web pages.
+    '''
+    page_key_1 = "1.html"
+    page_key_2 = "2.html"
+    html_1 = '<h1>html 1 Title</h1>'
+    html_2 = '<h1>html 2 Title</h1>'
+
+    return {page_key_1: html_1,
+            page_key_2: html_2}
 
 
 # Tests
@@ -100,7 +120,7 @@ def test_writes_json_s3(mock_s3, mock_exporter, mock_views):
     assert settings["database"] == "flights"
 
     # Checking document (exctracting for Body in s3)
-    args = mock_s3.put_object.call_args.kwargs
+    args = mock_s3.put_object.call_args_list[0].kwargs
     document = json.loads(args["Body"])
     assert document['data_date'] == "2026-01-01"
     assert document["views"] == mock_views
@@ -120,4 +140,31 @@ def test_writes_json_s3(mock_s3, mock_exporter, mock_views):
         "date": "2026-01-01"
     }
 
-    
+@pytest.mark.usefixtures("freeze_time")
+def test_write_webpage_s3(mock_s3, mock_exporter, mock_views, 
+                          mock_render_all, mock_rendered_pages):
+    '''
+    Tests that the bucket has the correct objects
+    and the return statement is correct.
+    '''
+    mock_exporter.return_value.fetch_views.return_value = mock_views
+
+    export_handler.handler({}, None)
+
+    # Same views JSON received
+    document = mock_render_all.call_args.args[0]
+    assert document["data_date"] == "2026-01-01"
+    assert document["views"] == mock_views
+
+    # Making call
+    calls = mock_s3.put_object.call_args_list
+    assert len(calls) == 1 + len(mock_rendered_pages)
+
+    # Itterating through pages and skipping JSON file
+    page_calls = [c.kwargs for c in calls[1:]]
+    for args, (page_key, html) in zip(page_calls, mock_rendered_pages.items()):
+        assert args["Bucket"] == "my-web-bucket"
+        assert args["Key"] == page_key
+        assert args["Body"] == html
+        assert args["ContentType"] == "text/html; charset=utf-8"
+        assert args["CacheControl"] == "max-age=300"
