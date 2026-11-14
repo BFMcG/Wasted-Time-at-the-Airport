@@ -164,7 +164,7 @@ def test_write_webpage_s3(mock_s3, mock_exporter, mock_views,
     page_calls = [c.kwargs for c in calls[1:]]
     for args, (page_key, html) in zip(page_calls, mock_rendered_pages.items()):
         assert args["Bucket"] == "my-web-bucket"
-        assert args["Key"] == page_key
+        assert args["Key"] == f"website/{page_key}"
         assert args["Body"] == html
         assert args["ContentType"] == "text/html; charset=utf-8"
         assert args["CacheControl"] == "max-age=300"

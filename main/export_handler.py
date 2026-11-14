@@ -78,14 +78,15 @@ def handler(event, context):
     rendered_pages = pages.SITE.render_all(document)
 
     for page_key, html in rendered_pages.items():
+        complete_p_key = f"website/{page_key}"
         s3.put_object(
             Bucket=bucket,
-            Key=page_key,
+            Key=complete_p_key,
             Body=html,
             ContentType="text/html; charset=utf-8",
             CacheControl="max-age=300"
         )
-        print(f"Wrote page to s3://{bucket}/{page_key}")
+        print(f"Wrote page to s3://{bucket}/{complete_p_key}")
     
     return {
         "statusCode": 200,

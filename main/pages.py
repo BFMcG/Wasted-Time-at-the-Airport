@@ -37,8 +37,8 @@ class DelayCounter:
         units = [
             (self.days, "days"),
             (self.hours, "hours"),
-            (self.minutes, "min"),
-            (self.seconds, "sec")
+            (self.minutes, "minutes"),
+            (self.seconds, "seconds")
         ]
 
         blocks = [
@@ -87,7 +87,7 @@ class HomePage:
         month = DelayCounter(*total_delay_month)
 
         return (
-            "    <h1>Time Wasted at the Airport</h1>\n"
+            "    <h1>Time Wasted<br>at San Diego Airport</h1>\n"
             + self._counter_block("Yesterday", yesterday)
             + self._counter_block("This Month", month)
         )
