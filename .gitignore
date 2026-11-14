@@ -5,3 +5,6 @@ pytest
 .venv/
 .ruff_cache/
 .claude
+website/preview.py
+website/*html
+

@@ -37,7 +37,7 @@ def test_to_html():
 
     result = delay_all.to_html()
 
-    expected = [(100, "days"), (2, "hours"), (3, "min"), (0, "sec")]
+    expected = [(100, "days"), (2, "hours"), (3, "minutes"), (0, "seconds")]
 
     for num, label in expected:
         assert (f'<div class="unit"><span class="value">{num:02d}</span>'
@@ -71,7 +71,7 @@ def test_home_body(mock_home_document):
     result = HomePage().body(mock_home_document)
 
     # Title
-    assert "<h1>Time Wasted at the Airport</h1>" in result
+    assert "<h1>Time Wasted<br>at San Diego Airport</h1>" in result
 
     #_counter_block
     # Total Seconds
@@ -89,15 +89,15 @@ def test_home_body(mock_home_document):
     # Labels
     assert result.count('<span class="label">days</span></div>') == 2
     assert result.count('<span class="label">hours</span></div>') == 2
-    assert result.count('<span class="label">min</span></div>') == 2
-    assert result.count('<span class="label">sec</span></div>') == 2
+    assert result.count('<span class="label">minutes</span></div>') == 2
+    assert result.count('<span class="label">seconds</span></div>') == 2
 
 
 def test_home_body_missing():
     result = HomePage().body({"views": {}})
 
     # Title
-    assert "<h1>Time Wasted at the Airport</h1>" in result
+    assert "<h1>Time Wasted<br>at San Diego Airport</h1>" in result
 
     # Total Seconds
     assert result.count('data-total="0"') == 2
@@ -109,5 +109,5 @@ def test_home_body_missing():
     # Labels
     assert result.count('<span class="label">days</span></div>') == 2
     assert result.count('<span class="label">hours</span></div>') == 2
-    assert result.count('<span class="label">min</span></div>') == 2
-    assert result.count('<span class="label">sec</span></div>') == 2
+    assert result.count('<span class="label">minutes</span></div>') == 2
+    assert result.count('<span class="label">seconds</span></div>') == 2

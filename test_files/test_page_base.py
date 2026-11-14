@@ -44,7 +44,7 @@ def test_render(mock_page):
 
     result = c_page.render(DOCUMENT, f_site_pages)
 
-    assert "<title>test_title1 | Time Wasted at the Airport</title>" in result
+    assert "<title>test_title1 | Time Wasted at San Diego Airport</title>" in result
     assert '<a href="1.html" class="active">test_nav1</a>' in result
     assert '<a href="2.html">test_nav2</a>' in result
     assert "<p>1.html body</p>" in result    
@@ -76,8 +76,8 @@ def test_render_all(mock_site):
 
     assert set(result) == {"1.html", "2.html"}
 
-    assert "<title>test_title1 | Time Wasted at the Airport</title>" in result["1.html"]
-    assert "<title>test_title2 | Time Wasted at the Airport</title>" in result["2.html"]
+    assert "<title>test_title1 | Time Wasted at San Diego Airport</title>" in result["1.html"]
+    assert "<title>test_title2 | Time Wasted at San Diego Airport</title>" in result["2.html"]
 
     assert "<p>1.html body</p>" in result["1.html"]
     assert "<p>2.html body</p>" in result["2.html"]

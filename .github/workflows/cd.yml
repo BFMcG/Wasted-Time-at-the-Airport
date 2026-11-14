@@ -32,6 +32,7 @@ jobs:
         run: |
           mkdir export_package
           cp main/export_handler.py main/athena_exporter.py export_package/
+          cp main/pages.py main/page_base.py export_package/
           cd export_package && zip -r ../export_function.zip .
 
       - name: Configure AWS credentials
@@ -75,6 +76,13 @@ jobs:
               esac
             done
           done
+
+      - name: Deploy static website files
+        run: |
+          aws s3 cp website/style.css s3://${{ vars.WEB_BUCKET }}/website/style.css \
+            --content-type "text/css" --cache-control "max-age=300"
+          aws s3 cp website/counter.js s3://${{ vars.WEB_BUCKET }}/website/counter.js \
+            --content-type "text/javascript" --cache-control "max-age=300"
 
       - name: Deploy to export Lambda
         run: |
