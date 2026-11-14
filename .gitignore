@@ -4,5 +4,5 @@
 pytest
 .venv/
 .ruff_cache/
-website/preview.py
+.claude
 website/*html
