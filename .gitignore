@@ -7,4 +7,5 @@ pytest
 .claude
 website/preview.py
 website/*html
+website/images/**/*.png
 

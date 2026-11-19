@@ -48,7 +48,7 @@ def test_render(mock_page):
     assert '<a href="1.html" class="active">test_nav1</a>' in result
     assert '<a href="2.html">test_nav2</a>' in result
     assert "<p>1.html body</p>" in result    
-    assert "Data for 2026-01-01" in result
+    assert "Updated to date: 2026-01-01" in result
     assert '<script src="test_script1.js"></script>' in result
 
     # Checking render passed body(document)

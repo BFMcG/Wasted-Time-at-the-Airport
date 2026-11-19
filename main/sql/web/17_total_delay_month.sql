@@ -1,8 +1,7 @@
 CREATE OR REPLACE VIEW flights.web_total_delay_month as
 with tds as (
     SELECT COUNT(total_delay_secs) as delayed_flights_month,
-        SUM(CASE WHEN total_delay_secs < 0 
-                THEN 0 ELSE total_delay_secs END) as sum_delay_secs
+        SUM(total_delay_secs) as sum_delay_secs
     FROM flights.airlines_tracked
     WHERE dt >= date_trunc('month', 
         date(current_timestamp AT TIME ZONE 'America/Los_Angeles') - interval '1' day)

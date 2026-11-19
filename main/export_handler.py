@@ -18,7 +18,8 @@ VIEWS = [
     "web_top_delays_month",
     "web_top_delays_yesterday",
     "web_total_delay_month",
-    "web_total_delay_yesterday"
+    "web_total_delay_yesterday",
+    "web_total_delay_week"
 ]
 
 
