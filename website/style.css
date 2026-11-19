@@ -1,12 +1,54 @@
+/* Root variables */
+:root {
+  --title-yellow: #ffc20e;
+  --title-orange: #e8792b;
+  --boarder: #8a6a4a;
+  --background: #5b3a1b;
+  --dark-background: #472c13;
+  --title-white: #ffffff;
+  --text-grey: #bbbbbb;
+  --foot-notes: #888888;
+  --air_img_wid: 280px;
+  --air_img_gap: 32px;
+}
+
 /* Every Page Style */
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: #2b2b2b;
-  color: #ffffff;
+  background-color: var(--background);
+  color: var(--title-white);
   font-family: system-ui, sans-serif;
   display: flex;
   flex-direction: column;
+}
+
+/* Home page */
+/* as wide as its widest child: the title */
+.home {
+  width: 100%;
+}
+
+.home-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 48px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.home-row .chart {
+  flex: 1 1 560px;
+}
+
+.home-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;   
+  gap: 48px;
 }
 
 nav {
@@ -14,17 +56,23 @@ nav {
   justify-content: center;
   gap: 24px;
   padding: 16px;
-  border-bottom: 1px solid #444444;
+  background-color: var(--dark-background);
+  border-bottom: 1px solid var(--boarder);
 }
 
 nav a {
-  color: #bbbbbb;
+  color: var(--title-white);
   text-decoration: none;
 }
 
+nav a + a {
+  border-left: 1px solid var(--boarder);
+  padding-left: 24px;
+}           
+
 nav a:hover,
 nav a.active {
-  color: #ffffff;
+  color: var(--title-white);
 }
 
 main {
@@ -38,26 +86,36 @@ main {
 }
 
 h1 {
-  font-size: clamp(2rem, 6vw, 3.5rem);
   margin-bottom: 48px;
 }
 
 h2 {
   font-weight: normal;
   font-size: 1rem;
-  color: #bbbbbb;
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
 
 .footnote {
-  color: #888888;
+  color: var(--foot-notes);
   font-size: 0.9rem;
 }
 
+.site-title {
+  margin-top: 20px;
+  font-family: "Righteous", system-ui, sans-serif;
+  font-weight: 400;              /* Righteous only comes in one weight */
+  font-size: clamp(1.75rem, 9vw, 6.75rem);
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  color: var(--title-yellow);
 
+  /* Layer 2: yellow outline */
+  -webkit-text-stroke: 0.12em var(--title-orange);
+  paint-order: stroke fill;
+}
 
-/* Home page */
+/* Counter */
 .counter-block {
   margin-bottom: 48px;
 }
@@ -67,7 +125,6 @@ h2 {
   justify-content: center;
   align-items: flex-start;
   gap: 12px;
-  color: #af0d0b;
   font-variant-numeric: tabular-nums;
 }
 
@@ -79,7 +136,7 @@ h2 {
 
 .value,
 .colon {
-  font-size: clamp(2.5rem, 10vw, 5rem);
+  font-size: clamp(2rem, 5vw, 4.5rem); /* Timer size */
   font-weight: bold;
   line-height: 1;
 }
@@ -87,9 +144,311 @@ h2 {
 .label {
   margin-top: 8px;
   font-size: 0.8rem;
-  color: #bbbbbb;
+  color: var(--text-grey);
   text-transform: uppercase;
+}
+
+/* Line chart (LineChart in pages.py) */
+/* the tooltip is positioned inside this box */
+
+/* Chart size */
+.chart {
+  position: relative;            
+  width: 100%;
+  max-width: 860px;
+}
+
+/* scales with the screen; viewBox keeps the shape */
+.chart svg {
+  display: block;
+  width: 100%;                   
+  height: auto;
+  overflow: visible;
+}
+
+/* Creating area under chart */
+.chart .area {
+  fill: var(--title-yellow);
+  fill-opacity: 0.15;            /* see-through */
+  stroke: none;
+  pointer-events: none;          /* never blocks hovering on the dots */
+}
+
+/* dotted lines under points */
+.chart .vline {
+  stroke: var(--text-grey);
+  stroke-opacity: 0.4;           /* subtle, so it doesn't compete with the line */
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  pointer-events: none;
+}
+
+/* without this, SVG fills the area under the line black */
+.chart .line {
+  fill: none;                    
+  stroke: var(--title-yellow);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* page background, so dots stand off the line */
+.chart .dot {
+  fill: var(--title-yellow);
+  stroke: var(--background);               
+  stroke-width: 1.5;
+  transition: r 0.1s;
+}
+
+/* bigger invisible circle = easier to hover */
+.chart .hit {
+  fill: transparent;             
+}
+
+.chart .axis {
+  fill: none;
+  stroke: var(--boarder);
+}
+
+.chart rect.axis {
+  fill: none;
+}
+
+.chart .axis-title {
+  fill: var(--title-white);
+  font-size: 13px;
+  letter-spacing: 0.05em;
+}
+
+/* SVG text uses fill, not color */
+.chart .tick {
+  fill: var(--text-grey);                 
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart .point {
+  cursor: pointer;
+  outline: none;
+}
+
+/* hovered/focused dot grows and turns white */
+.chart .point.active .dot,
+.chart .point:focus-visible .dot {
+  r: 6;                          
+  fill: var(--title-white);
+}
+
+.chart-tooltip {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 10px));
+  background: var(--dark-background);
+  color: var(--title-white);
+  border: 1px solid var(--title-yellow);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chart .dot {
+    transition: none;
+  }
+}
+ /* How delay is calculated */
+.disclaimer {
+  font-size: clamp(1rem, calc(3vw), 2rem);
+  font-weight: bold;
+  color: var(--title-yellow);
+  text-transform: none;
+  letter-spacing: 0.05em;
+  margin-bottom: 24px;
+}
+
+.gate_run {
+  font-size: clamp(0.5rem, calc(3vw), 1.5rem);
+  color: var(--foot-notes);
+  text-transform: none;
+  letter-spacing: 0.05em;
+  margin-bottom: 24px;
+}
+
+.gate_run strong {
+  font-weight: bold;
+  color: var(--title-yellow);
+}
+
+/* Home Page Airlines */
+.airlines {
+  margin: 48px 0 32px;
+}
+
+.airline-title {
+  font-size: clamp(1.5rem, calc(5vw), 3.5rem);
+  font-weight: bold;
+  color: var(--title-white);
+  text-transform: none;
+  letter-spacing: 0.05em;
+  margin-bottom: 24px;
+}
+
+.airline-grid {
+  display: grid;
+  /* 4 across -> 8 logos make 2 rows */
+  grid-template-columns: repeat(4, var(--air_img_wid));
+  grid-auto-rows: 200px;
+  gap: 24px var(--air_img_gap); /* row gap, column gap */
+  justify-content: center;
+}
+
+.airline-grid img {
+  width: 100%;
+  height: 100%;
+  /* fit inside the cell without stretching or cropping */
+  object-fit: contain; 
+  background: var(--title-white);
+  padding: 12px;
+  border-radius: 8px;
+  /* padding counts inside the 180x100 cell */
+  box-sizing: border-box; 
 }
 
 
 
+/* Phones: 2 across (4 rows) */
+@media (max-width: 1000px) {
+  :root {
+    --air_img_wid: 140px 
+  }
+  .airline-grid {
+    grid-template-columns: repeat(2, var(--air_img_wid));
+    grid-auto-rows: 80px;
+  }
+}
+
+.definitions {
+  max-width: calc((4 * var(--air_img_wid) + 3 * var(--air_img_gap)) - 150px);
+  margin: 0 auto;
+  text-align: left;
+}
+
+/* Tables (shared by any page that uses Table) */
+.table-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 75px;
+  margin-bottom: 48px;
+  max-width: 100%;
+  width: 100%;
+  max-width: 1400px;
+}
+
+.data-table {
+  max-width: 100%;
+}
+
+.data-table table {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--boarder);
+}
+
+.data-table th,
+.data-table td {
+  padding: 14px 28px;
+  font-size: 1.15rem;
+  border-bottom: 1px solid var(--boarder);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.data-table th {
+  color: var(--text-grey);
+  font-weight: normal;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Longest Delays page: highlight the Delay column */
+.data-table.delay td:last-child {
+  color: var(--title-yellow);
+  font-weight: bold;
+  text-align: left;
+}
+
+.data-table .cell-img {
+  width: 48px;
+  height: 34px;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+}
+
+.data-table.delay {
+  flex: 1 1 420px;
+}
+
+.data-table.delay table {
+  width: 100%
+}
+
+@media (max-width: 600px) {
+  .data-table.delay th,
+  .data-table.delay td {
+    padding: 10px 12px;
+    font-size: 1rem;
+  }
+}
+
+/* Airline Stats */
+.data-table {
+  flex: 1 1 420px;
+  max-width: 100%;
+}
+
+.data-table table {
+  width: 100%;
+  /* ...your existing border-collapse etc. */
+}
+
+.data-table.highlight-last td:last-child {
+  color: var(--title-yellow);
+  font-weight: bold;
+}
+
+.disclaimers {
+  flex-basis: 100%; 
+  max-width: 1400px;
+  margin: -60px auto 0;        
+  text-align: left;
+}
+
+.avg {
+  margin: 4px 0;
+  font-size: 0.95rem;
+  color: var(--foot-notes);
+  letter-spacing: 0.05em;
+}
+
+.data-table.highlight-last th:nth-child(2),
+.data-table.highlight-last td:nth-child(2) {
+  text-align: center;
+}
+
+.data-table.pct td:last-child {
+  padding-left: 64px;
+}
+
+@media (max-width: 600px) {
+  .data-table th,
+  .data-table td {
+    padding: 10px 12px;
+    font-size: 1rem;
+  }
+}

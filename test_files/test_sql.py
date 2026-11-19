@@ -57,7 +57,7 @@ def mock_core_airlines(spark):
     scheduled_off = datetime(2026, 1, 2, 8, 0)
     ontime_off = scheduled_off + timedelta(minutes=20)
     early_off = scheduled_off + timedelta(minutes=10)
-    # 30 minute delay sitting on the runway
+    # 30 minute delay (50 minutes sitting on the runway)
     late_off = scheduled_off + timedelta(minutes=50)
 
     df = spark.createDataFrame(
@@ -77,11 +77,17 @@ def mock_core_airlines(spark):
             # Zero departure delay
             ("2026-01-02", "DAL", "890", 0, 1200,
              scheduled_off, ontime_off),
+            # Long runway and departure
+            ("2026-01-02", "SWA", "777", 1200, 2400,
+             scheduled_off, late_off),
             # Null runway_delay actual - scheduled <= 20
             ("2026-01-02", "DAL", "3333", 600, None,
              scheduled_off, ontime_off),
-            # Null runway_delay actual - schecduled > 20
-            ("2026-01-02", "DAL", "3333", 600, None,
+            # Null runway_delay actual - scheduled > 20
+            ("2026-01-02", "DAL", "5555", 600, None,
+             scheduled_off, late_off),
+            # Null runway_delay, large gate_delay
+            ("2026-01-02", "UAL", "4321", 2400, None,
              scheduled_off, late_off),
             # Negative delay: flight left early
             ("2026-01-02", "SWA", "222", -120, 1200,
@@ -146,8 +152,10 @@ def test_airlines_tracked(spark):
         ("SWA", "321", "Southwest", 0),
         ("SWA", "321", "Southwest", 600),
         ("DAL", "890", "Delta", 0),
+        ("SWA", "777", "Southwest", 1800),
         ("DAL", "3333", "Delta", 0),
-        ("DAL", "3333", "Delta", 1200),
+        ("DAL", "5555", "Delta", 1200),
+        ("UAL", "4321", "United", 1800),
         ("SWA", "222", "Southwest", 0)
     ])
 
@@ -212,7 +220,7 @@ def test_avg_delay_al_yesterday(spark):
 
     df = spark.sql(
         '''
-        SELECT airline_name, num_flights, avg_delay_hours,
+        SELECT airline_name, num_flights_delayed, avg_delay_hours,
         avg_delay_minutes, avg_delay_secs
         FROM web_avg_delay_al_yesterday
         '''
@@ -223,7 +231,7 @@ def test_avg_delay_al_yesterday(spark):
     )
 
     expected = sorted([
-        ("United", 2, 2, 0, 31),
+        ("United", 1, 2, 0, 31),
         ("Delta", 1, 1, 1, 1),
         ("Southwest", 1, 0, 5, 0)
     ])
@@ -236,7 +244,7 @@ def test_avg_delay_al_month(spark):
 
     df = spark.sql(
         '''
-        SELECT airline_name, num_flights, avg_delay_hours,
+        SELECT airline_name, num_flights_delayed, avg_delay_hours,
         avg_delay_minutes, avg_delay_secs
         FROM web_avg_delay_al_month
         '''
@@ -247,7 +255,7 @@ def test_avg_delay_al_month(spark):
     )
 
     expected = sorted([
-        ("United", 2, 2, 0, 31),
+        ("United", 1, 2, 0, 31),
         ("Southwest", 2, 1, 3, 1),
         ("Delta", 1, 1, 1, 1)
     ])
@@ -273,7 +281,7 @@ def test_pct_delay_yesterday(spark):
     expected = sorted([
         ("Delta", 100.0, 1),
         ("United", 66.67, 3),
-        ("Southwest", 0.0, 1)
+        ("Southwest", 100.0, 1)
     ])
 
     assert rows == expected
@@ -297,7 +305,7 @@ def test_pct_delay_month(spark):
     expected = sorted([
         ("Delta", 100.0, 1),
         ("United", 66.67, 3),
-        ("Southwest", 50.0, 2)
+        ("Southwest", 100.0, 2)
     ])
 
     assert rows == expected
@@ -337,5 +345,28 @@ def test_total_delay_month(spark):
     rows = tuple(df[0])
 
     expected = (5, 1, 8, 9, 4)
+
+    assert rows == expected
+
+@pytest.mark.usefixtures("mock_web_airlines")
+def test_total_delay_week(spark):
+    run_view(spark, "web/18_total_delay_week.sql")
+
+    df = spark.sql(
+        '''
+        SELECT dt, sum_delay_secs
+        FROM web_total_delay_week
+        '''
+    ).collect()
+
+    rows = sorted(
+            tuple(r) for r in df
+        )
+
+    expected = sorted([
+        ("2025-12-31", 50000),
+        ("2026-01-01", 7261),
+        ("2026-01-02", 108483)
+    ])
 
     assert rows == expected

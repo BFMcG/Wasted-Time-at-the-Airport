@@ -8,6 +8,9 @@ LAYOUT = Template(
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>$title | Time Wasted at San Diego Airport</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Righteous&display=swap">
       <link rel="stylesheet" href="style.css">
     </head>
     <body>
@@ -16,7 +19,7 @@ LAYOUT = Template(
       </nav>
       <main>
     $body
-        <p class="footnote">Data for $data_date (updated each morning)</p>
+        <p class="footnote">Updated to date: $data_date</p>
       </main>
     $scripts
     </body>
